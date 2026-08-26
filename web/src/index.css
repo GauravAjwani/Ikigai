@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #12141a;
+  --bg-2: #0e1014;
+  --panel: #171a21;
+  --line: #2a2e38;
+  --text: #e8e4db;
+  --muted: #8b8790;
+  --sage: #8faf86;
+  --clay: #d07255;
+  --sand: #d4a574;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+}
+
+.serif {
+  font-family: Fraunces, Georgia, serif;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #2f3340;
+  border-radius: 8px;
+}
