@@ -1,0 +1,1 @@
+"""ADK entry folder."""

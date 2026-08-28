@@ -1,0 +1,55 @@
+_metadata:
+  major_version: 2
+  minor_version: 1
+display_information:
+  name: Ikigai
+  description: Decision memory for Slack. @Ikigai is public; /ikigai is private.
+  background_color: "#12141a"
+features:
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: Ikigai
+    always_online: true
+  slash_commands:
+    - command: /ikigai
+      url: https://ikigai-uipuf5bksa-uc.a.run.app/slack/commands
+      description: Private lookup, or /ikigai login and /ikigai logout
+      should_escape: false
+    - command: /check-ikigai
+      url: https://ikigai-uipuf5bksa-uc.a.run.app/slack/commands
+      description: That person's decisions — Slack @username only
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - commands
+      - channels:history
+      - channels:join
+      - channels:read
+      - groups:history
+      - groups:read
+      - app_mentions:read
+      - users:read
+      - im:history
+      - im:read
+      - im:write
+    user:
+      - search:read
+settings:
+  event_subscriptions:
+    request_url: https://ikigai-uipuf5bksa-uc.a.run.app/slack/events
+    bot_events:
+      - message.channels
+      - message.groups
+      - message.im
+      - app_mention
+  interactivity:
+    is_enabled: true
+    request_url: https://ikigai-uipuf5bksa-uc.a.run.app/slack/events
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

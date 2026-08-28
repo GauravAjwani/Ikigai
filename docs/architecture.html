@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Ikigai — architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #12141a;
+      --panel: #171a21;
+      --line: #2a2e38;
+      --text: #e8e4db;
+      --muted: #8b8790;
+      --sage: #8faf86;
+      --clay: #d07255;
+      --sand: #d4a574;
+      --gemini: #141a16;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    @page {
+      size: A4 landscape;
+      margin: 8mm;
+    }
+    .page { padding: 0; }
+    .sheet {
+      height: 194mm;
+      overflow: hidden;
+    }
+    .kicker {
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 4px;
+    }
+    h1 {
+      font-family: Fraunces, Georgia, serif;
+      font-size: 26px;
+      font-weight: 500;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+    .lede {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      max-width: 58rem;
+      margin: 6px 0 0;
+    }
+    .diagram {
+      display: block;
+      margin: 8px auto 0;
+      width: auto;
+      height: 148mm;
+      max-width: 100%;
+      page-break-inside: avoid;
+    }
+    h2 {
+      font-family: Fraunces, Georgia, serif;
+      font-size: 17px;
+      font-weight: 500;
+      margin: 12px 0 6px;
+    }
+    .note { color: var(--muted); font-size: 12px; margin: 4px 0 8px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+    th {
+      text-align: left;
+      font-size: 10.5px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 500;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 10px;
+    }
+    td {
+      padding: 8px 10px;
+      border-top: 1px solid var(--line);
+      vertical-align: top;
+    }
+    td.never { color: var(--clay); }
+    td.ok { color: var(--muted); }
+    .cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 8px;
+    }
+    ol { margin: 0; padding-left: 0; list-style: none; }
+    ol li {
+      display: flex;
+      gap: 10px;
+      font-size: 13px;
+      line-height: 1.45;
+      margin: 0 0 9px;
+    }
+    .n {
+      flex: 0 0 20px;
+      height: 20px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--sand);
+      font-size: 11px;
+      display: grid;
+      place-items: center;
+    }
+    .store h3 {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin: 0 0 8px;
+    }
+    .store ul { margin: 0; padding: 0; list-style: none; font-size: 13px; }
+    .store li { margin: 0 0 6px; }
+    .plus { color: var(--sage); }
+    .minus { color: var(--clay); }
+    .break { page-break-before: always; break-before: page; }
+    code {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 0.92em;
+    }
+  </style>
+</head>
+<body>
+  <section class="page sheet">
+    <p class="kicker">Ikigai · decision memory for Slack</p>
+    <h1>How Gemini is wired</h1>
+    <p class="lede">
+      The frontend never calls Gemini. Slack never calls Gemini. Firestore never calls Gemini.
+      One backend process — FastAPI on Cloud Run — is the only client of <code>google.genai</code>.
+      Sage arrows are the only Gemini path. The dashed line is the missing Gemini→Firestore session.
+    </p>
+
+    <svg class="diagram" viewBox="0 0 960 620" role="img" aria-label="Ikigai architecture diagram">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8" fill="none" stroke="#5a564e" />
+        </marker>
+        <marker id="arrSage" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8" fill="none" stroke="#8faf86" />
+        </marker>
+      </defs>
+
+      <rect x="24" y="28" width="210" height="70" rx="8" fill="#171a21" stroke="#2a2e38" />
+      <text x="38" y="56" fill="#e8e4db" font-size="14" font-weight="500">Slack</text>
+      <text x="38" y="76" fill="#8b8790" font-size="11">@mention · slash · DM</text>
+
+      <rect x="250" y="28" width="220" height="70" rx="8" fill="#171a21" stroke="#2a2e38" />
+      <text x="264" y="56" fill="#e8e4db" font-size="14" font-weight="500">Replay UI</text>
+      <text x="264" y="76" fill="#8b8790" font-size="11">React · fetch /api/*</text>
+
+      <rect x="486" y="28" width="178" height="70" rx="8" fill="#171a21" stroke="#2a2e38" />
+      <text x="500" y="56" fill="#e8e4db" font-size="14" font-weight="500">MCP</text>
+      <text x="500" y="76" fill="#8b8790" font-size="11">/mcp/query_decisions</text>
+
+      <line x1="129" y1="98" x2="129" y2="154" stroke="#5a564e" marker-end="url(#arr)" />
+      <line x1="360" y1="98" x2="360" y2="154" stroke="#5a564e" marker-end="url(#arr)" />
+      <line x1="575" y1="98" x2="500" y2="154" stroke="#5a564e" marker-end="url(#arr)" />
+
+      <rect x="24" y="158" width="640" height="78" rx="8" fill="#171a21" stroke="#2a2e38" />
+      <text x="38" y="188" fill="#e8e4db" font-size="14" font-weight="500">Cloud Run · FastAPI</text>
+      <text x="38" y="210" fill="#8b8790" font-size="11">ikigai.api:app · ACK &lt; 3s · serves web/dist · gemini_client.py</text>
+
+      <line x1="344" y1="236" x2="344" y2="262" stroke="#5a564e" marker-end="url(#arr)" />
+
+      <rect x="24" y="266" width="640" height="92" rx="8" fill="#171a21" stroke="#2a2e38" />
+      <text x="38" y="300" fill="#e8e4db" font-size="14" font-weight="500">ADK sequential pipeline</text>
+      <text x="38" y="322" fill="#8b8790" font-size="11">prefilter → gate → probes → retrieve → embed-rank-destroy → adjudicate</text>
+
+      <text x="704" y="148" fill="#8faf86" font-size="11" letter-spacing="0.14em">GEMINI</text>
+      <rect x="704" y="158" width="232" height="200" rx="8" fill="#141a16" stroke="#8faf86" />
+      <text x="720" y="194" fill="#8faf86" font-size="11" letter-spacing="0.08em">MODELS</text>
+      <text x="720" y="222" fill="#e8e4db" font-size="20" font-family="Fraunces, Georgia, serif">Gemini 3.5</text>
+      <text x="720" y="248" fill="#8b8790" font-size="11">flash-lite · flash · embed</text>
+      <text x="720" y="272" fill="#8faf86" font-size="11">Vertex or API key.</text>
+      <text x="720" y="290" fill="#8faf86" font-size="11">Called only by gemini_client.py.</text>
+
+      <line x1="664" y1="198" x2="702" y2="198" stroke="#8faf86" stroke-width="2" marker-end="url(#arrSage)" />
+      <line x1="704" y1="318" x2="666" y2="318" stroke="#8faf86" stroke-width="2" marker-end="url(#arrSage)" />
+
+      <line x1="178" y1="358" x2="178" y2="398" stroke="#5a564e" marker-end="url(#arr)" />
+      <line x1="510" y1="358" x2="510" y2="398" stroke="#5a564e" marker-end="url(#arr)" />
+
+      <rect x="24" y="402" width="308" height="86" rx="8" fill="#171a21" stroke="#2a2e38" />
+      <text x="38" y="434" fill="#e8e4db" font-size="14" font-weight="500">Firestore graph</text>
+      <text x="38" y="456" fill="#8b8790" font-size="11">labels · status · permalinks · edges</text>
+
+      <rect x="356" y="402" width="308" height="86" rx="8" fill="#171a21" stroke="#2a2e38" />
+      <text x="370" y="434" fill="#e8e4db" font-size="14" font-weight="500">Slack live search</text>
+      <text x="370" y="456" fill="#8b8790" font-size="11">snippets in RAM · then destroyed</text>
+
+      <line x1="820" y1="358" x2="820" y2="444" stroke="#5a564e" stroke-dasharray="5 4" />
+      <text x="828" y="410" fill="#8b8790" font-size="10">no DB session</text>
+
+      <line x1="344" y1="488" x2="344" y2="516" stroke="#5a564e" marker-end="url(#arr)" />
+      <rect x="24" y="520" width="640" height="72" rx="8" fill="#171a21" stroke="#2a2e38" />
+      <text x="38" y="548" fill="#e8e4db" font-size="14" font-weight="500">Decision card</text>
+      <text x="38" y="570" fill="#8b8790" font-size="11">Replay JSON · Slack Block Kit · watcher silent unless costly</text>
+    </svg>
+  </section>
+
+  <section class="page sheet break">
+    <p class="kicker">Connections</p>
+    <h1>Who talks to whom</h1>
+    <p class="note">Gemini is a backend RPC. It has no session to the Replay UI, Slack, or Firestore.</p>
+    <table>
+      <thead>
+        <tr><th>From</th><th>To</th><th>How</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Replay UI</td><td>FastAPI</td><td class="ok">fetch POST /api/run — no Gemini key in the browser</td></tr>
+        <tr><td>Slack</td><td>FastAPI</td><td class="ok">/slack/events · /slack/commands · Bolt ACK then pipeline</td></tr>
+        <tr><td>MCP</td><td>FastAPI</td><td class="ok">POST /mcp/query_decisions</td></tr>
+        <tr><td>FastAPI</td><td>Gemini 3.5</td><td class="ok">gemini_client.py · generate_content + embed_content</td></tr>
+        <tr><td>FastAPI</td><td>Firestore</td><td class="ok">graph().upsert · labels, status, permalinks, edges</td></tr>
+        <tr><td>FastAPI</td><td>Slack search</td><td class="ok">slack_store · live snippets, discarded after the request</td></tr>
+        <tr><td>Gemini</td><td>Replay UI</td><td class="never">Never — the browser only reads the JSON card from FastAPI</td></tr>
+        <tr><td>Gemini</td><td>Firestore</td><td class="never">Never — the pipeline writes derived metadata after adjudication</td></tr>
+      </tbody>
+    </table>
+
+    <div class="cols">
+      <div>
+        <h2>Request path</h2>
+        <ol>
+          <li><span class="n">1</span><span>Replay posts <code>POST /api/run</code>. Slack posts <code>/slack/commands</code> or <code>/slack/events</code>. MCP posts <code>/mcp/query_decisions</code>.</span></li>
+          <li><span class="n">2</span><span>Prefilter drops chatter with no model. Gate uses Flash-Lite. About 95% of watcher traffic exits here.</span></li>
+          <li><span class="n">3</span><span>Flash-Lite writes cross-vocabulary probes. Retrieve fans out to live Slack search and the Firestore label graph.</span></li>
+          <li><span class="n">4</span><span><code>embed()</code> ranks candidates in memory, then drops the vectors. Flash adjudicates same / current / reversed / concurrent.</span></li>
+          <li><span class="n">5</span><span>FastAPI writes derived labels to Firestore and returns a card to Replay or Block Kit to Slack. Gemini never sees the database.</span></li>
+        </ol>
+      </div>
+      <div>
+        <h2>What crosses the database</h2>
+        <div class="cols" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="store">
+            <h3 class="plus">Stored</h3>
+            <ul>
+              <li><span class="plus">+</span> derived labels</li>
+              <li><span class="plus">+</span> status</li>
+              <li><span class="plus">+</span> confidence</li>
+              <li><span class="plus">+</span> permalinks</li>
+              <li><span class="plus">+</span> edges</li>
+            </ul>
+          </div>
+          <div class="store">
+            <h3 class="minus">Never stored</h3>
+            <ul>
+              <li><span class="minus">×</span> Slack message text</li>
+              <li><span class="minus">×</span> Slack user IDs</li>
+              <li><span class="minus">×</span> content embeddings</li>
+              <li><span class="minus">×</span> a persistent vector index</li>
+            </ul>
+          </div>
+        </div>
+        <h2>Models</h2>
+        <table>
+          <tbody>
+            <tr><td>Gate / probes</td><td>gemini-3.5-flash-lite</td></tr>
+            <tr><td>Adjudicate</td><td>gemini-3.5-flash</td></tr>
+            <tr><td>Transient rank</td><td>gemini-embedding-001</td></tr>
+            <tr><td>Framework</td><td>Google ADK sequential pipeline</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</body>
+</html>
