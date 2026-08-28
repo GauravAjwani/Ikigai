@@ -50,7 +50,7 @@ const NODES: Node[] = [
     title: "Slack",
     kicker: "Client",
     body: "@Ikigai, /ikigai, /check-ikigai, and DMs hit Cloud Run at /slack/events and /slack/commands. Bolt ACKs in under 3s, then runs the same pipeline as Replay.",
-    talks: "Events API / Socket Mode → FastAPI",
+    talks: "HMAC-checked Events API / slash → FastAPI",
   },
   {
     id: "mcp",
