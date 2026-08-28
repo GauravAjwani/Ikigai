@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextvars import ContextVar
 from threading import Lock
 
 from ikigai.fixtures import seed_decisions
@@ -110,9 +111,35 @@ class FirestoreGraph(DecisionGraph):
 
 
 _graph: DecisionGraph | None = None
+_demo_graph: MemoryGraph | None = None
+_graph_override: ContextVar[DecisionGraph | None] = ContextVar("ikigai_graph", default=None)
+
+
+def demo_graph() -> MemoryGraph:
+    global _demo_graph
+    if _demo_graph is None:
+        _demo_graph = MemoryGraph(seed=True)
+    return _demo_graph
+
+
+def reset_demo_graph() -> MemoryGraph:
+    global _demo_graph
+    _demo_graph = MemoryGraph(seed=True)
+    return _demo_graph
+
+
+def bind_demo_graph():
+    return _graph_override.set(demo_graph())
+
+
+def unbind_graph(token) -> None:
+    _graph_override.reset(token)
 
 
 def graph() -> DecisionGraph:
+    ov = _graph_override.get()
+    if ov is not None:
+        return ov
     global _graph
     if _graph is None:
         s = get_settings()

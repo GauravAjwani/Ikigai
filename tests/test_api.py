@@ -72,10 +72,14 @@ def test_cloud_locks_sensitive_apis(monkeypatch):
     health = client.get("/api/health").json()
     assert "budget" not in health
     assert "gcp_project" not in health
-    assert client.get("/api/workspace").status_code == 401
-    assert client.post("/api/reset").status_code == 401
+    ws = client.get("/api/workspace")
+    assert ws.status_code == 200
+    assert any(c["id"] == "C-PLATFORM" for c in ws.json()["channels"])
+    assert ws.json()["messages"]
+    assert client.post("/api/reset").status_code == 200
     assert client.post("/mcp/query_decisions", json={"query": "tokens"}).status_code == 401
+    assert client.get("/api/privacy").status_code == 401
     assert client.get("/api/health").headers.get("x-content-type-options") == "nosniff"
     monkeypatch.setenv("IKIGAI_API_TOKEN", "test-lock-token")
-    assert client.get("/api/workspace", headers={"X-Ikigai-Token": "wrong"}).status_code == 401
-    assert client.get("/api/workspace", headers={"X-Ikigai-Token": "test-lock-token"}).status_code == 200
+    assert client.get("/api/privacy", headers={"X-Ikigai-Token": "wrong"}).status_code == 401
+    assert client.get("/api/privacy", headers={"X-Ikigai-Token": "test-lock-token"}).status_code == 200

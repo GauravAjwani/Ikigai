@@ -22,6 +22,7 @@ export type Card = {
   confidence: number;
   share_text: string;
   summary: string;
+  who?: string;
   decision_id?: string;
 };
 export type PipelineResult = {

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -12,12 +12,12 @@ from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from ikigai import cost
-from ikigai.graph import graph, privacy_dump
+from ikigai.graph import bind_demo_graph, graph, privacy_dump, reset_demo_graph, unbind_graph
 from ikigai.pipeline import run_pipeline
 from ikigai.schemas import Trigger
 from ikigai.security import MAX_BODY, ApiGuardMiddleware, on_cloud, verify_slack_signature
 from ikigai.settings import get_settings
-from ikigai.slack_store import reset_store, slack_store
+from ikigai.slack_store import bind_demo_store, reset_demo_store, reset_store, slack_store, unbind_store
 
 try:
     from ikigai.slack_app import handler as slack_handler
@@ -25,6 +25,21 @@ except Exception:  # pragma: no cover
     slack_handler = None
 
 _socket_handler = None
+
+
+@contextmanager
+def replay_sandbox():
+    """Cloud Replay uses the fixture workspace, never live Slack or Firestore."""
+    if not on_cloud():
+        yield
+        return
+    st = bind_demo_store()
+    gt = bind_demo_graph()
+    try:
+        yield
+    finally:
+        unbind_store(st)
+        unbind_graph(gt)
 
 
 @asynccontextmanager
@@ -96,7 +111,7 @@ def health():
         "slack": s.slack_ready(),
         "slack_http": slack_handler is not None,
         "slash_commands": ["/ikigai", "/check-ikigai"],
-        "build": "fix-v21",
+        "build": "fix-v22",
     }
     if on_cloud():
         body["vertex"] = s.vertex_enabled or bool(s.google_cloud_project and not s.gemini_api_key)
@@ -114,15 +129,20 @@ def health():
 
 @app.get("/api/workspace")
 def workspace(channel_id: str | None = None):
-    store = slack_store()
-    channels = [c.model_dump() for c in store.channels()]
-    cid = channel_id or (channels[0]["id"] if channels else "")
-    messages = [m.model_dump() for m in store.history(cid)]
-    return {"channels": channels, "channel_id": cid, "messages": messages}
+    with replay_sandbox():
+        store = slack_store()
+        channels = [c.model_dump() for c in store.channels()]
+        cid = channel_id or (channels[0]["id"] if channels else "")
+        messages = [m.model_dump() for m in store.history(cid)]
+        return {"channels": channels, "channel_id": cid, "messages": messages}
 
 
 @app.post("/api/reset")
 def reset():
+    if on_cloud():
+        reset_demo_store()
+        reset_demo_graph()
+        return {"ok": True}
     reset_store()
     return {"ok": True}
 
@@ -132,53 +152,54 @@ async def run(body: WatchBody):
     from ikigai.prefilter import is_chatter, is_trivial_prompt, looks_decisionish
     from ikigai.schemas import PipelineResult
 
-    store = slack_store()
-    posted = None
-    if body.post and body.path == "watcher":
-        posted = store.post(body.channel_id, body.text, body.user_label)
+    with replay_sandbox():
+        store = slack_store()
+        posted = None
+        if body.post and body.path == "watcher":
+            posted = store.post(body.channel_id, body.text, body.user_label)
 
-    if body.path == "watcher" and (is_chatter(body.text) or not looks_decisionish(body.text) and len(body.text.strip()) < 40):
-        result = PipelineResult(
-            silenced=True,
-            silence_reason="chatter",
-            path="watcher",
-            gemini_used=False,
-        )
-        return {"posted": posted.model_dump() if posted else None, "result": result.model_dump()}
-
-    if body.path in {"search", "check"} and is_trivial_prompt(body.text):
-        result = PipelineResult(
-            silenced=True,
-            silence_reason="trivial",
-            path=body.path if body.path in {"watcher", "search", "check"} else "search",
-            gemini_used=False,
-            cost_usd=0,
-        )
-        return {"posted": posted.model_dump() if posted else None, "result": result.model_dump()}
-
-    s = get_settings()
-    if not s.gemini_ready():
-        raise HTTPException(
-            503,
-            "Gemini is not configured. Set GEMINI_API_KEY or GOOGLE_CLOUD_PROJECT.",
-        )
-    try:
-        result = await run_pipeline(
-            Trigger(
-                text=body.text,
-                channel_id=body.channel_id,
-                thread_ts=posted.ts if posted else None,
-                path=body.path if body.path in {"watcher", "search", "check"} else "watcher",
-                user_label=body.user_label,
-                all_channels=body.all_channels,
+        if body.path == "watcher" and (is_chatter(body.text) or not looks_decisionish(body.text) and len(body.text.strip()) < 40):
+            result = PipelineResult(
+                silenced=True,
+                silence_reason="chatter",
+                path="watcher",
+                gemini_used=False,
             )
-        )
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(502, str(e)) from e
-    return {
-        "posted": posted.model_dump() if posted else None,
-        "result": result.model_dump(),
-    }
+            return {"posted": posted.model_dump() if posted else None, "result": result.model_dump()}
+
+        if body.path in {"search", "check"} and is_trivial_prompt(body.text):
+            result = PipelineResult(
+                silenced=True,
+                silence_reason="trivial",
+                path=body.path if body.path in {"watcher", "search", "check"} else "search",
+                gemini_used=False,
+                cost_usd=0,
+            )
+            return {"posted": posted.model_dump() if posted else None, "result": result.model_dump()}
+
+        s = get_settings()
+        if not s.gemini_ready():
+            raise HTTPException(
+                503,
+                "Gemini is not configured. Set GEMINI_API_KEY or GOOGLE_CLOUD_PROJECT.",
+            )
+        try:
+            result = await run_pipeline(
+                Trigger(
+                    text=body.text,
+                    channel_id=body.channel_id,
+                    thread_ts=posted.ts if posted else None,
+                    path=body.path if body.path in {"watcher", "search", "check"} else "watcher",
+                    user_label=body.user_label,
+                    all_channels=body.all_channels,
+                )
+            )
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(502, str(e)) from e
+        return {
+            "posted": posted.model_dump() if posted else None,
+            "result": result.model_dump(),
+        }
 
 
 @app.post("/api/ikigai")
@@ -201,53 +222,55 @@ async def slash_check(body: WatchBody):
     from ikigai.prefilter import is_trivial_prompt
     from ikigai.stances import check_person, extract_person_query
 
-    if is_trivial_prompt(body.text):
-        from ikigai.schemas import PipelineResult
+    with replay_sandbox():
+        if is_trivial_prompt(body.text):
+            from ikigai.schemas import PipelineResult
 
-        return PipelineResult(
-            silenced=True, silence_reason="trivial", path="check", gemini_used=False
-        ).model_dump()
-    store = slack_store()
-    name = extract_person_query(body.text, store.user_labels())
-    if name:
-        import sys
+            return PipelineResult(
+                silenced=True, silence_reason="trivial", path="check", gemini_used=False
+            ).model_dump()
+        store = slack_store()
+        name = extract_person_query(body.text, store.user_labels())
+        if name:
+            import sys
 
-        found = check_person(
-            store,
-            name,
-            channel_id=body.channel_id,
-            all_channels=False,
-            analyze="pytest" not in sys.modules,
+            found = check_person(
+                store,
+                name,
+                channel_id=body.channel_id,
+                all_channels=False,
+                analyze="pytest" not in sys.modules,
+            )
+            return {
+                "name": found.name,
+                "scope": found.scope,
+                "summary": found.summary,
+                "happened": found.happened,
+                "reports": [
+                    {
+                        "label": r.label,
+                        "gist": r.gist,
+                        "what": r.what,
+                        "channel_name": r.channel_name,
+                        "permalink": r.permalink,
+                        "agreed": r.agreed,
+                        "opposed": r.opposed,
+                    }
+                    for r in found.reports
+                ],
+                "gemini_used": bool(found.happened or found.headline),
+                "cost_usd": 0,
+            }
+        result = await run_pipeline(
+            Trigger(text=body.text, channel_id=body.channel_id, path="check")
         )
-        return {
-            "name": found.name,
-            "scope": found.scope,
-            "summary": found.summary,
-            "happened": found.happened,
-            "reports": [
-                {
-                    "label": r.label,
-                    "gist": r.gist,
-                    "what": r.what,
-                    "channel_name": r.channel_name,
-                    "permalink": r.permalink,
-                    "agreed": r.agreed,
-                    "opposed": r.opposed,
-                }
-                for r in found.reports
-            ],
-            "gemini_used": bool(found.happened or found.headline),
-            "cost_usd": 0,
-        }
-    result = await run_pipeline(
-        Trigger(text=body.text, channel_id=body.channel_id, path="check")
-    )
-    return result.model_dump()
+        return result.model_dump()
 
 
 @app.get("/api/graph")
 def graph_dump():
-    return privacy_dump()
+    with replay_sandbox():
+        return privacy_dump()
 
 
 @app.get("/api/privacy")
@@ -353,7 +376,8 @@ def architecture():
         },
         "guards": [
             "Slack signing secret (HMAC v0)",
-            "IKIGAI_API_TOKEN on Cloud Run /api and /mcp",
+            "Replay workspace uses a fixture corpus (not live Slack)",
+            "IKIGAI_API_TOKEN on remaining Cloud Run /api and /mcp",
             "drop Slack event retries",
         ],
         "notes": "Slack text is wrapped untrusted; Gemini never sees raw quotes in user-facing fields",

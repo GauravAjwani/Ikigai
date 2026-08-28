@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from contextvars import ContextVar
 
 from ikigai.fixtures import clone_channels, clone_messages
 from ikigai.prefilter import tokenize
@@ -623,9 +624,35 @@ class LiveSlack(SlackStore):
 
 
 _store: SlackStore | None = None
+_demo: FixtureSlack | None = None
+_override: ContextVar[SlackStore | None] = ContextVar("ikigai_store", default=None)
+
+
+def demo_store() -> FixtureSlack:
+    global _demo
+    if _demo is None:
+        _demo = FixtureSlack()
+    return _demo
+
+
+def reset_demo_store() -> FixtureSlack:
+    global _demo
+    _demo = FixtureSlack()
+    return _demo
+
+
+def bind_demo_store():
+    return _override.set(demo_store())
+
+
+def unbind_store(token) -> None:
+    _override.reset(token)
 
 
 def slack_store() -> SlackStore:
+    ov = _override.get()
+    if ov is not None:
+        return ov
     global _store
     if _store is None:
         from ikigai.settings import get_settings

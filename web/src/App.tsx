@@ -105,7 +105,7 @@ export default function App() {
         <div className="px-5 pt-6 pb-4">
           <div className="serif text-[28px] leading-none tracking-tight">Ikigai</div>
           <div className="mt-2 text-[12px] text-[#8b8790] leading-snug">
-            Decision memory for Slack. @Ikigai is public. /ikigai is private.
+            Demo workspace below. Slack @Ikigai is public. /ikigai is private.
           </div>
         </div>
         <nav className="px-2 mt-2 flex flex-col gap-0.5">
@@ -272,9 +272,9 @@ export default function App() {
                     {card.summary && (
                       <div className="text-[14px] leading-snug text-[#e8e4db] mb-3">{card.summary}</div>
                     )}
-                    <Field label="What" body={card.what} />
-                    <Field label="Why" body={card.why} />
-                    <Field label="After" body={card.aftermath} />
+                    <Field label="Status" body={card.status} />
+                    {card.who ? <Field label="Who" body={`@${card.who.replace(/^@/, "")}`} /> : null}
+                    <Field label="Now" body={card.aftermath || card.why} />
                     <div className="mt-3 text-[12px] text-[#8b8790]">
                       {card.status} · {(card.confidence * 100).toFixed(0)}%
                     </div>

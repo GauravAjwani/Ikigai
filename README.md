@@ -12,13 +12,15 @@ You do **not** need a Slack workspace, GCP project, or Vertex account to evaluat
 
 1. **Demo video** (primary). The live Slack agent is what the product is.
 2. **Replay UI** (no Slack). Run locally with the steps below, then type `Let's rotate tokens every night.` You should get the lock-free rotator reversal and the earlier 401 cascade — not a keyword match.
-3. **Hosted proof on Google Cloud** (already deployed):
-   - Service: https://ikigai-uipuf5bksa-uc.a.run.app
+3. **Hosted Replay** (no Slack, no laptop):
+   - App: https://ikigai-uipuf5bksa-uc.a.run.app
    - Health: https://ikigai-uipuf5bksa-uc.a.run.app/api/health
+   - Open the app. You should see fixture channels and messages already in the thread. Type `Let's rotate tokens every night.`
+   - That UI is a **demo corpus**, not your live Slack. `@Ikigai` in Slack is the live agent.
 4. **Architecture diagram** (upload this on Devpost): [`docs/architecture.html`](docs/architecture.html) or [`docs/ikigai-architecture.pdf`](docs/ikigai-architecture.pdf).
 5. Private repo access: add `testing@devpost.com` and `cloudhackathons@google.com` as collaborators.
 
-The hosted URL is the Cloud Run backend (Slack HTTP events + health). On Cloud Run, `/api/*` except `/api/health` is locked. Use **local Replay** to click through the fixture workspace.
+The hosted URL is Cloud Run: Replay (fixture workspace) plus Slack HTTP events. Live Slack history is not exposed on the website. `/mcp/*` and `/api/privacy` stay locked unless `X-Ikigai-Token` is sent.
 
 `PLAN.md` is the original planning note. The shipped product is this README and the `ikigai/` package.
 
@@ -156,7 +158,7 @@ chmod +x infra/deploy.sh
 
 The script builds the image with Cloud Build, then `gcloud run deploy --image`. It enables Run, Vertex, Firestore, Pub/Sub, Secret Manager, and Artifact Registry. Confirm `"ok": true` on `/api/health`.
 
-Optional: set `IKIGAI_API_TOKEN` before deploy so `/api/*` (except health) and `/mcp/*` require header `X-Ikigai-Token`. Slack routes stay signature-checked and do not use that header.
+Optional: set `IKIGAI_API_TOKEN` before deploy so `/api/privacy`, `/mcp/*`, and other private routes require header `X-Ikigai-Token`. Replay (`/api/workspace`, `/api/run`, …) stays public on Cloud Run and only serves the **fixture** corpus. Slack routes stay signature-checked and do not use that header.
 
 ## 3. Connect Slack (optional — live agent)
 

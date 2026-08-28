@@ -12,7 +12,18 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 MAX_BODY = 262_144
-_UNLOCKED = {"/api/health"}
+# Public Replay on Cloud Run. These routes use the fixture corpus only,
+# never the live Slack workspace (see replay_sandbox in api.py).
+_UNLOCKED = {
+    "/api/health",
+    "/api/workspace",
+    "/api/run",
+    "/api/check",
+    "/api/reset",
+    "/api/architecture",
+    "/api/graph",
+    "/api/cost",
+}
 _HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
