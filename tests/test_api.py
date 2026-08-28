@@ -83,3 +83,14 @@ def test_cloud_locks_sensitive_apis(monkeypatch):
     monkeypatch.setenv("IKIGAI_API_TOKEN", "test-lock-token")
     assert client.get("/api/privacy", headers={"X-Ikigai-Token": "wrong"}).status_code == 401
     assert client.get("/api/privacy", headers={"X-Ikigai-Token": "test-lock-token"}).status_code == 200
+
+
+def test_replay_logout_and_login():
+    out = client.post("/api/logout", json={"channel_id": "C-SECURITY", "user_label": "you"})
+    assert out.status_code == 200
+    assert "ikigai login" in out.json()["text"].lower()
+    inn = client.post("/api/login", json={"channel_id": "C-SECURITY", "user_label": "you"})
+    assert inn.status_code == 200
+    body = inn.json()
+    assert body.get("greeting")
+    assert body.get("happened") or body.get("items")

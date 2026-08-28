@@ -45,6 +45,34 @@ export type PipelineResult = {
   stages: { stage: string; ok: boolean; detail: string; usd: number; ms: number }[];
   path: string;
 };
+export type PersonReport = {
+  label: string;
+  gist: string;
+  what: string;
+  channel_name: string;
+  permalink: string;
+  agreed: string[];
+  opposed: string[];
+};
+export type PersonCheck = {
+  name: string;
+  scope?: string;
+  summary: string;
+  happened?: string;
+  reports: PersonReport[];
+};
+export type BriefItem = {
+  item_id: string;
+  title: string;
+  detail: string;
+  permalink: string;
+  channel_name: string;
+};
+export type Briefing = {
+  greeting: string;
+  happened: string;
+  items: BriefItem[];
+};
 
 const j = async (url: string, init?: RequestInit) => {
   const r = await fetch(url, {
@@ -63,8 +91,19 @@ export const api = {
   health: () => j("/api/health"),
   workspace: (channelId?: string) =>
     j(`/api/workspace${channelId ? `?channel_id=${encodeURIComponent(channelId)}` : ""}`),
-  run: (body: { text: string; channel_id: string; path: string; post?: boolean }) =>
-    j("/api/run", { method: "POST", body: JSON.stringify(body) }),
+  run: (body: {
+    text: string;
+    channel_id: string;
+    path: string;
+    post?: boolean;
+    all_channels?: boolean;
+  }) => j("/api/run", { method: "POST", body: JSON.stringify(body) }),
+  check: (body: { text: string; channel_id: string; all_channels?: boolean }) =>
+    j("/api/check", { method: "POST", body: JSON.stringify({ ...body, path: "check" }) }),
+  login: (body: { channel_id: string; user_label?: string }) =>
+    j("/api/login", { method: "POST", body: JSON.stringify(body) }),
+  logout: (body: { channel_id: string; user_label?: string }) =>
+    j("/api/logout", { method: "POST", body: JSON.stringify(body) }),
   graph: () => j("/api/graph"),
   cost: () => j("/api/cost"),
   architecture: () => j("/api/architecture"),

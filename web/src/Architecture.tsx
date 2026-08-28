@@ -42,7 +42,7 @@ const NODES: Node[] = [
     id: "replay",
     title: "Replay UI",
     kicker: "Frontend",
-    body: "Vite + React, served from FastAPI as web/dist. Calls /api/run, /api/graph, /api/cost. Never holds GEMINI_API_KEY and never talks to Google or Firestore.",
+    body: "Vite + React. Same Slack calls: @Ikigai, /ikigai, /ikigai login and logout, /check-ikigai, DMs. Fixture corpus only — never live Slack. POST /api/run, /api/check, /api/login, /api/logout.",
     talks: "HTTPS JSON to FastAPI only",
   },
   {

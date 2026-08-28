@@ -15,7 +15,7 @@ You do **not** need a Slack workspace, GCP project, or Vertex account to evaluat
 3. **Hosted Replay** (no Slack, no laptop):
    - App: https://ikigai-uipuf5bksa-uc.a.run.app
    - Health: https://ikigai-uipuf5bksa-uc.a.run.app/api/health
-   - Open the app. You should see fixture channels and messages already in the thread. Type `Let's rotate tokens every night.`
+   - Open the app. Fixture messages are already in the thread. Use the chips: **@Ikigai**, **/ikigai**, **DM**, **/check-ikigai**, **login**, **logout**, or **Channel post**. Try `/ikigai` with `Let's rotate tokens every night.` then `/check-ikigai` with `priya`.
    - That UI is a **demo corpus**, not your live Slack. `@Ikigai` in Slack is the live agent.
 4. **Architecture diagram** (upload this on Devpost): [`docs/architecture.html`](docs/architecture.html) or [`docs/ikigai-architecture.pdf`](docs/ikigai-architecture.pdf).
 5. Private repo access: add `testing@devpost.com` and `cloudhackathons@google.com` as collaborators.

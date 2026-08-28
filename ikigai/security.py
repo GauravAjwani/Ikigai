@@ -23,6 +23,9 @@ _UNLOCKED = {
     "/api/architecture",
     "/api/graph",
     "/api/cost",
+    "/api/login",
+    "/api/logout",
+    "/api/feedback",
 }
 _HEADERS = {
     "X-Content-Type-Options": "nosniff",

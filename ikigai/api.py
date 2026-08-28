@@ -101,6 +101,16 @@ class SearchBody(BaseModel):
     query: str = Field(min_length=2)
 
 
+class PresenceBody(BaseModel):
+    user_label: str = "you"
+    channel_id: str = "C-PLATFORM"
+    all_channels: bool = False
+
+
+_REPLAY_USER = "U-REPLAY"
+_FIXTURE_START = 1_700_000_000.0
+
+
 @app.get("/api/health")
 def health():
     s = get_settings()
@@ -110,8 +120,8 @@ def health():
         "gemini": s.gemini_ready(),
         "slack": s.slack_ready(),
         "slack_http": slack_handler is not None,
-        "slash_commands": ["/ikigai", "/check-ikigai"],
-        "build": "fix-v22",
+        "slash_commands": ["/ikigai", "/ikigai login", "/ikigai logout", "/check-ikigai"],
+        "build": "fix-v23",
     }
     if on_cloud():
         body["vertex"] = s.vertex_enabled or bool(s.google_cloud_project and not s.gemini_api_key)
@@ -237,8 +247,8 @@ async def slash_check(body: WatchBody):
             found = check_person(
                 store,
                 name,
-                channel_id=body.channel_id,
-                all_channels=False,
+                channel_id=None if body.all_channels else body.channel_id,
+                all_channels=body.all_channels,
                 analyze="pytest" not in sys.modules,
             )
             return {
@@ -285,8 +295,63 @@ def cost_api():
 
 @app.post("/api/feedback")
 def feedback(body: FeedbackBody):
-    graph().add_negative(body.decision_id, body.note)
-    return {"ok": True}
+    with replay_sandbox():
+        graph().add_negative(body.decision_id, body.note)
+        return {"ok": True}
+
+
+@app.post("/api/logout")
+def api_logout(body: PresenceBody):
+    from ikigai import presence
+    from ikigai.briefing import farewell
+
+    with replay_sandbox():
+        presence.logout(
+            _REPLAY_USER,
+            body.channel_id,
+            user_label=body.user_label,
+            at=_FIXTURE_START,
+        )
+        hour = slack_store().user_hour()
+        return {"ok": True, "text": farewell(hour), "mode": "logout"}
+
+
+@app.post("/api/login")
+def api_login(body: PresenceBody):
+    import sys
+    import time as time_mod
+
+    from ikigai import presence
+    from ikigai.briefing import build_briefing, collect_since, default_greeting, fallback_briefing
+
+    with replay_sandbox():
+        store = slack_store()
+        now = time_mod.time()
+        away = presence.get_away(_REPLAY_USER)
+        oldest = away.at if away else _FIXTURE_START
+        messages = collect_since(
+            store,
+            channel_id=body.channel_id,
+            oldest=oldest,
+            all_channels=True,
+        )
+        hour = store.user_hour()
+        name = (body.user_label or "you").strip()
+        if "pytest" in sys.modules:
+            briefing = fallback_briefing(messages, hour=hour, name=name, scope="fixture workspace")
+        else:
+            briefing = build_briefing(
+                messages,
+                hour=hour,
+                name=name,
+                scope="fixture workspace",
+                away_at=oldest,
+                now_at=now,
+            )
+        if not (briefing.greeting or "").strip():
+            briefing.greeting = default_greeting(hour, name)
+        presence.clear_away(_REPLAY_USER)
+        return briefing.model_dump()
 
 
 @app.get("/api/evals")
