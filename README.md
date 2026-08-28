@@ -1,36 +1,51 @@
 # Ikigai
 
-Decision memory for Slack.
+Decision memory for Slack. **All Things Agentic** · track **Taskmaster**.
 
-When someone reopens a settled question, Ikigai finds the original decision — even when the two conversations share almost no vocabulary.
+When someone reopens a settled question, Ikigai finds the original call — even when the two conversations share almost no vocabulary. It is not a chatbot. Greetings, thanks, and emoji-only prompts get no reply and do not call a model.
 
-You can use it in public or in private. They are separate chats.
+Public and private are separate. `@Ikigai` is a channel reply everyone can see. `/ikigai` is ephemeral: only you see it.
+
+## For judges
+
+You do **not** need a Slack workspace, GCP project, or Vertex account to evaluate the agent.
+
+1. **Demo video** (primary). The live Slack agent is what the product is.
+2. **Replay UI** (no Slack). Run locally with the steps below, then type `Let's rotate tokens every night.` You should get the lock-free rotator reversal and the earlier 401 cascade — not a keyword match.
+3. **Hosted proof on Google Cloud** (already deployed):
+   - Service: https://ikigai-uipuf5bksa-uc.a.run.app
+   - Health: https://ikigai-uipuf5bksa-uc.a.run.app/api/health
+4. **Architecture diagram** (upload this on Devpost): [`docs/architecture.html`](docs/architecture.html) or [`docs/ikigai-architecture.pdf`](docs/ikigai-architecture.pdf).
+5. Private repo access: add `testing@devpost.com` and `cloudhackathons@google.com` as collaborators.
+
+The hosted URL is the Cloud Run backend (Slack HTTP events + health). On Cloud Run, `/api/*` except `/api/health` is locked. Use **local Replay** to click through the fixture workspace.
+
+`PLAN.md` is the original planning note. The shipped product is this README and the `ikigai/` package.
 
 ## How you call it
 
-**Public** (everyone in the channel can see it)
+| Call | Who sees it | What it does |
+|---|---|---|
+| `@Ikigai <question>` | Public, in that thread | Decision lookup in **this channel** |
+| `/ikigai <question>` | Private (ephemeral) | Same lookup |
+| `/ikigai logout` | Private | Warm goodbye; records when you left |
+| `/ikigai login` | Private | Catch-up since you left; tap a line to open the thread |
+| `/check-ikigai @username` | Private | That person's calls in this chat, plus who supported or opposed |
+| DM Ikigai | Private | Search / person-check across channels the bot can see |
 
-- `@Ikigai <proposal>` in a channel — replies in that thread, in public
+`/check-ikigai` needs a Slack `@username`, not a free-text name.
 
-**Private** (only you)
-
-- `/ikigai <proposal>` in a channel — only you see the reply
-- `/ikigai logout` — you're done for the day (private). Ikigai notes the time.
-- `/ikigai login` — private catch-up of what you missed. Tap an item to jump to the original thread.
-- `/check-ikigai [name]` — summary of that person's calls **in this chat**, plus who agreed or opposed
-- Open a DM with Ikigai: mention a person or a decision and it searches **every channel** it can access
-
-Greetings, thanks, and emoji-only prompts (`@Ikigai hello`, `/ikigai thanks`) get no reply and do not call a model.
-
-Every decision card starts with a one-line summary, then What / Why / After as before.
+A card leads with one warm line (`This was already decided` / `Heads up — this was later reversed` / `Two live approaches here`), then **Status**, **Who** (`@username`), **Now**, and **Open thread**.
 
 ## Stack
 
 | Requirement | This repo |
 |---|---|
-| Gemini 3.5+ | `gemini-3.5-flash-lite` (gate, probes), `gemini-3.5-flash` (adjudicate), `gemini-embedding-001` (rank) |
+| Gemini 3.5+ | `gemini-3.5-flash-lite` (watcher gate), `gemini-3.5-flash` (lookup / login / check), `gemini-embedding-001` (transient rank) |
 | Google agent framework | Google ADK — `root_agent` in `ikigai/agent.py` |
-| GCP | Cloud Run, Firestore, Pub/Sub (deploy script), Vertex AI |
+| GCP | Cloud Run, Firestore, Vertex AI (Pub/Sub enabled on deploy) |
+
+Search, login, and check use **one** Flash call each (`thinking=LOW`). The unsolicited watcher adds a Flash-Lite gate (`thinking=MINIMAL`). Probes are heuristic (no model).
 
 ## Architecture
 
@@ -44,61 +59,141 @@ Cloud Run  (ACK < 3s)
 ┌──────────────────────────────────────┐
 │  ADK agent  (IkigaiAgent)            │
 │  0. Prefilter — no model             │
-│  1. Gate — gemini-3.5-flash-lite     │
-│  2. Probes — mechanism / consequence │
+│  1. Gate — flash-lite (watcher only) │
+│  2. Probes — heuristic               │
 │  3. Retrieve — Slack + graph         │
 │  4. Transient embed-rank-destroy     │
 │  5. Adjudicate — gemini-3.5-flash    │
 └──────────────────────────────────────┘
         │
         ▼
-Public channel reply (everyone sees it)
+Card (Replay JSON or Slack Block Kit)
         │
         ▼
 Firestore  labels · status · confidence · permalinks · edges
 ```
 
-## Run locally
+Without Slack tokens the same pipeline runs on a fixture workspace (`FixtureSlack`). That is the Replay UI.
+
+## 1. Run locally (Replay UI, no Slack)
+
+You need **Python 3.12+**, **Node 20+**, and a [Gemini API key](https://aistudio.google.com/apikey). Slack tokens are optional.
+
+### macOS / Linux
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
+git clone https://github.com/GauravAjwani/Ikigai.git
+cd Ikigai
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # set GEMINI_API_KEY and Slack tokens
+cp .env.example .env
+```
 
-cd web && npm install && npm run build && cd ..
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/GauravAjwani/Ikigai.git
+cd Ikigai
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+copy .env.example .env
+```
+
+Edit `.env` and set at least:
+
+```
+GEMINI_API_KEY=your-key
+```
+
+Leave Slack fields empty. Replay uses the fixture corpus.
+
+Build the UI and start the API (same on every OS, from the repo root, venv on):
+
+```bash
+cd web
+npm install
+npm run build
+cd ..
 python -m uvicorn ikigai.api:app --host 0.0.0.0 --port 43177
 ```
 
 Open http://127.0.0.1:43177
 
-Type `Let's rotate tokens every night.` Ikigai should attach the lock-free rotator reversal (and the earlier 401 cascade), not a keyword match.
+- **Workspace** — pick a fixture channel, paste a proposal, Run.
+- Try `Let's rotate tokens every night.` then `thanks!` (should stay silent).
+- **Graph inspector** — derived labels only; no message text.
+- **Architecture** / **Cost** — stack and the day's meter.
 
-Without `GEMINI_API_KEY` the API returns 503. The product does not fake Gemini.
+Without `GEMINI_API_KEY` (and without Vertex), lookup returns 503. The product does not fake Gemini.
+
+### Tests
 
 ```bash
-python -m pytest tests/ -q
+python -m pytest tests/test_core.py tests/test_api.py -q
 ```
 
-## Deploy to Google Cloud
+If `test_health` / `test_privacy` hang, your `.env` is pointing at a live GCP project. Use `pytest tests/test_core.py -q` instead, or unset `GOOGLE_CLOUD_PROJECT` for the test run.
 
-1. Create a GCP project and enable billing. Set a budget alert at **$40**.
-2. Create a Firestore native database (nam5 or us-central1).
-3. From this repo:
+## 2. Deploy to Google Cloud
+
+Already live for this submission: **https://ikigai-uipuf5bksa-uc.a.run.app**. To reproduce:
+
+1. Create a GCP project, enable billing, set a budget alert at **$40**.
+2. Create a Firestore **Native** database (`nam5` or `us-central1`).
+3. Authenticate (`gcloud auth login` and `gcloud auth application-default login`).
+4. From the repo (Git Bash on Windows; set `CLOUDSDK_PYTHON` if `gcloud` is tied to a broken Python):
 
 ```bash
 export GOOGLE_CLOUD_PROJECT=your-project-id
-export GEMINI_API_KEY=...
+export GOOGLE_CLOUD_LOCATION=us-central1
+# Vertex on Cloud Run; optional AI Studio key as a Secret Manager fallback:
+# export GEMINI_API_KEY=...
 chmod +x infra/deploy.sh
 ./infra/deploy.sh
 ```
 
-Set Slack Request URLs to `https://<service>.run.app/slack/events` and `/slack/commands`, or use Socket Mode locally with `SLACK_APP_TOKEN`. Install from `infra/slack-manifest.yaml`.
+The script builds the image with Cloud Build, then `gcloud run deploy --image`. It enables Run, Vertex, Firestore, Pub/Sub, Secret Manager, and Artifact Registry. Confirm `"ok": true` on `/api/health`.
+
+Optional: set `IKIGAI_API_TOKEN` before deploy so `/api/*` (except health) and `/mcp/*` require header `X-Ikigai-Token`. Slack routes stay signature-checked and do not use that header.
+
+## 3. Connect Slack (optional — live agent)
+
+Replay does not need this. This is how the Cloud Run service becomes `@Ikigai` in a workspace.
+
+1. Open [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From an app manifest**.
+2. Paste [`infra/slack-manifest.yaml`](infra/slack-manifest.yaml). Replace the `run.app` URLs with your Cloud Run URL if you deployed your own project.
+3. **Install App** to the workspace.
+4. Copy **Bot User OAuth Token** (`xoxb-…`) and **Signing Secret** into Cloud Run env (`SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`) or into local `.env`.
+5. Confirm:
+   - **Event Subscriptions** request URL: `https://<service>.run.app/slack/events` (bot events: `app_mention`, `message.channels`, `message.groups`, `message.im`)
+   - **Slash Commands** `/ikigai` and `/check-ikigai`: `https://<service>.run.app/slack/commands`
+   - **Interactivity** request URL: same as events
+6. In each channel: `/invite @Ikigai`.
+
+**Local Slack (laptop only):** set `SLACK_APP_TOKEN` (`xapp-…`) and turn **Socket Mode** on for that app. Cloud Run must use HTTP events, not Socket Mode.
+
+Leave `SLACK_USER_TOKEN` empty unless you have a user token with `search:read`. Without it, Ikigai scans `conversations.history` on channels the bot is in.
+
+### Smoke in Slack
+
+| Type | Expect |
+|---|---|
+| `/ikigai logout` | Private goodbye |
+| `/ikigai login` | Private catch-up |
+| `/ikigai should we rotate tokens every night?` | Private card, only you |
+| `@Ikigai should we rotate tokens every night?` | Public thread reply |
+| `/check-ikigai @someone` | That person's calls + supported / opposed |
+| `@Ikigai hello` | Silence |
 
 ## MCP
+
+On Cloud Run these routes need `X-Ikigai-Token` if `IKIGAI_API_TOKEN` is set. Locally they are open.
 
 - `POST /mcp/query_decisions` `{"query":"..."}`
 - `POST /mcp/check_supersession` `{"text":"..."}`
 
 ## What we do not store
 
-Message text, Slack user IDs, embeddings, or a vector index of the workspace. Confirm with **Graph inspector** in the UI or `GET /api/privacy`.
+Message text, Slack user IDs, embeddings, or a vector index of the workspace. Confirm with **Graph inspector** in Replay or `GET /api/privacy` (local).

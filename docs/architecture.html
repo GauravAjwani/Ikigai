@@ -179,7 +179,7 @@
 
       <rect x="24" y="266" width="640" height="92" rx="8" fill="#171a21" stroke="#2a2e38" />
       <text x="38" y="300" fill="#e8e4db" font-size="14" font-weight="500">ADK sequential pipeline</text>
-      <text x="38" y="322" fill="#8b8790" font-size="11">prefilter → gate → probes → retrieve → embed-rank-destroy → adjudicate</text>
+      <text x="38" y="322" fill="#8b8790" font-size="11">prefilter → gate (watcher) → heuristic probes → retrieve → embed-rank-destroy → flash</text>
 
       <text x="704" y="148" fill="#8faf86" font-size="11" letter-spacing="0.14em">GEMINI</text>
       <rect x="704" y="158" width="232" height="200" rx="8" fill="#141a16" stroke="#8faf86" />
@@ -239,7 +239,7 @@
         <ol>
           <li><span class="n">1</span><span>Replay posts <code>POST /api/run</code>. Slack posts <code>/slack/commands</code> or <code>/slack/events</code>. MCP posts <code>/mcp/query_decisions</code>.</span></li>
           <li><span class="n">2</span><span>Prefilter drops chatter with no model. Gate uses Flash-Lite. About 95% of watcher traffic exits here.</span></li>
-          <li><span class="n">3</span><span>Flash-Lite writes cross-vocabulary probes. Retrieve fans out to live Slack search and the Firestore label graph.</span></li>
+          <li><span class="n">3</span><span>Heuristic probes (no model). Retrieve fans out to live Slack search and the Firestore label graph.</span></li>
           <li><span class="n">4</span><span><code>embed()</code> ranks candidates in memory, then drops the vectors. Flash adjudicates same / current / reversed / concurrent.</span></li>
           <li><span class="n">5</span><span>FastAPI writes derived labels to Firestore and returns a card to Replay or Block Kit to Slack. Gemini never sees the database.</span></li>
         </ol>
@@ -270,7 +270,8 @@
         <h2>Models</h2>
         <table>
           <tbody>
-            <tr><td>Gate / probes</td><td>gemini-3.5-flash-lite</td></tr>
+            <tr><td>Gate (watcher)</td><td>gemini-3.5-flash-lite</td></tr>
+            <tr><td>Probes</td><td>heuristic (no model)</td></tr>
             <tr><td>Adjudicate</td><td>gemini-3.5-flash</td></tr>
             <tr><td>Transient rank</td><td>gemini-embedding-001</td></tr>
             <tr><td>Framework</td><td>Google ADK sequential pipeline</td></tr>

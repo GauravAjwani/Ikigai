@@ -1,8 +1,8 @@
-# Ikigai — Build Plan (not implemented yet)
+# Ikigai — Build Plan (historical)
 
 Decision memory for Slack. Track: **Taskmaster**.
 
-This document is the only artifact from the planning pass. Do not treat it as a shipped product. Implementation starts after GCP credits are available and the user says to build.
+**This file is the original planning note.** The product is implemented. Use [`README.md`](README.md) for setup, architecture, and how to call the agent. Some details below (card layout, probe generation, separate login slash commands) were changed in the shipped code.
 
 ## 1. What we are actually building
 
