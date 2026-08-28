@@ -347,10 +347,16 @@ def architecture():
         "track": "Taskmaster",
         "models": {
             "gate": get_settings().gate_model,
-            "probes": get_settings().probe_model,
+            "probes": "heuristic",
             "adjudicate": get_settings().adjudicate_model,
             "embed": get_settings().embed_model,
         },
+        "guards": [
+            "Slack signing secret (HMAC v0)",
+            "IKIGAI_API_TOKEN on Cloud Run /api and /mcp",
+            "drop Slack event retries",
+        ],
+        "notes": "Slack text is wrapped untrusted; Gemini never sees raw quotes in user-facing fields",
         "stored": [
             "derived labels",
             "status",

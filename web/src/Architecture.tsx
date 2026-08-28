@@ -341,10 +341,10 @@ function Diagram({
 }) {
   return (
     <svg
-      viewBox="0 0 960 620"
+      viewBox="0 0 960 640"
       className="w-full min-w-[720px] h-auto"
       role="img"
-      aria-label="Ikigai architecture: clients to FastAPI to Gemini, Firestore, and Slack search"
+      aria-label="Ikigai architecture: clients through a security edge into FastAPI, untrusted notes, and Gemini"
     >
       <defs>
         <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
@@ -355,68 +355,83 @@ function Diagram({
         </marker>
       </defs>
 
-      <Box x={24} y={28} w={210} h={70} id="slack" title="Slack" sub="@mention · slash · DM" selected={selected} onSelect={onSelect} />
-      <Box x={250} y={28} w={220} h={70} id="replay" title="Replay UI" sub="React · fetch /api/*" selected={selected} onSelect={onSelect} />
-      <Box x={486} y={28} w={178} h={70} id="mcp" title="MCP" sub="/mcp/query_decisions" selected={selected} onSelect={onSelect} />
+      <Box x={24} y={20} w={210} h={62} id="slack" title="Slack" sub="@mention · slash · DM" selected={selected} onSelect={onSelect} />
+      <Box x={250} y={20} w={220} h={62} id="replay" title="Replay UI" sub="React · fetch /api/*" selected={selected} onSelect={onSelect} />
+      <Box x={486} y={20} w={178} h={62} id="mcp" title="MCP" sub="/mcp/query_decisions" selected={selected} onSelect={onSelect} />
 
-      <line x1={129} y1={98} x2={129} y2={154} stroke="#5a564e" markerEnd="url(#arr)" />
-      <line x1={360} y1={98} x2={360} y2={154} stroke="#5a564e" markerEnd="url(#arr)" />
-      <line x1={575} y1={98} x2={500} y2={154} stroke="#5a564e" markerEnd="url(#arr)" />
+      <line x1={129} y1={82} x2={129} y2={108} stroke="#5a564e" markerEnd="url(#arr)" />
+      <line x1={360} y1={82} x2={360} y2={108} stroke="#5a564e" markerEnd="url(#arr)" />
+      <line x1={575} y1={82} x2={500} y2={108} stroke="#5a564e" markerEnd="url(#arr)" />
 
       <Box
         x={24}
-        y={158}
+        y={112}
         w={640}
-        h={78}
+        h={56}
+        id="guard"
+        title="Security edge"
+        sub="Slack HMAC · IKIGAI_API_TOKEN on Cloud Run · drop event retries"
+        selected={selected}
+        onSelect={onSelect}
+      />
+
+      <line x1={344} y1={168} x2={344} y2={186} stroke="#5a564e" markerEnd="url(#arr)" />
+
+      <Box
+        x={24}
+        y={190}
+        w={640}
+        h={64}
         id="fastapi"
         title="Cloud Run · FastAPI"
-        sub="ikigai.api:app · ACK < 3s · serves web/dist · gemini_client.py"
+        sub="ikigai.api:app · ACK < 3s · gemini_client.py"
         selected={selected}
         onSelect={onSelect}
       />
 
-      <line x1={344} y1={236} x2={344} y2={262} stroke="#5a564e" markerEnd="url(#arr)" />
+      <line x1={344} y1={254} x2={344} y2={272} stroke="#5a564e" markerEnd="url(#arr)" />
 
       <Box
         x={24}
-        y={266}
+        y={276}
         w={640}
-        h={92}
+        h={78}
         id="pipeline"
         title="ADK sequential pipeline"
-        sub="prefilter → gate → probes → retrieve → embed-rank-destroy → adjudicate"
+        sub="prefilter → gate → cheap probes → retrieve → rank → lookup"
         selected={selected}
         onSelect={onSelect}
       />
 
-      <text x="704" y="148" fill="#8faf86" fontSize="11" letterSpacing="0.14em">
+      <text x="704" y="102" fill="#8faf86" fontSize="11" letterSpacing="0.14em">
         GEMINI
       </text>
       <Box
         x={704}
-        y={158}
+        y={112}
         w={232}
-        h={200}
+        h={242}
         id="gemini"
         title="Gemini 3.5"
-        sub={`${models.gate || "flash-lite"} · ${models.adjudicate || "flash"} · embed`}
+        sub={`${models.gate || "flash-lite"} gate · ${models.adjudicate || "flash"} lookup · embed`}
         selected={selected}
         onSelect={onSelect}
         accent
         tall
       />
 
-      <line x1={664} y1={198} x2={702} y2={198} stroke="#8faf86" strokeWidth={2} markerEnd="url(#arrSage)" />
-      <line x1={704} y1={318} x2={666} y2={318} stroke="#8faf86" strokeWidth={2} markerEnd="url(#arrSage)" />
+      <line x1={664} y1={222} x2={702} y2={222} stroke="#8faf86" strokeWidth={2} markerEnd="url(#arrSage)" />
+      <line x1={664} y1={318} x2={702} y2={318} stroke="#8faf86" strokeWidth={2} markerEnd="url(#arrSage)" />
 
-      <line x1={178} y1={358} x2={178} y2={398} stroke="#5a564e" markerEnd="url(#arr)" />
-      <line x1={510} y1={358} x2={510} y2={398} stroke="#5a564e" markerEnd="url(#arr)" />
+      <line x1={178} y1={354} x2={178} y2={392} stroke="#5a564e" markerEnd="url(#arr)" />
+      <line x1={510} y1={354} x2={510} y2={392} stroke="#5a564e" markerEnd="url(#arr)" />
+      <line x1={820} y1={354} x2={820} y2={392} stroke="#8faf86" strokeWidth={2} markerEnd="url(#arrSage)" />
 
       <Box
         x={24}
-        y={402}
+        y={396}
         w={308}
-        h={86}
+        h={72}
         id="firestore"
         title="Firestore graph"
         sub="labels · status · permalinks · edges"
@@ -425,30 +440,42 @@ function Diagram({
       />
       <Box
         x={356}
-        y={402}
+        y={396}
         w={308}
-        h={86}
+        h={72}
         id="slacklive"
         title="Slack live search"
-        sub="snippets in RAM · then destroyed"
+        sub="packed as notes · then destroyed"
         selected={selected}
         onSelect={onSelect}
       />
+      <Box
+        x={704}
+        y={396}
+        w={232}
+        h={72}
+        id="notes"
+        title="Untrusted notes"
+        sub="<<< Slack >>> · never quoted"
+        selected={selected}
+        onSelect={onSelect}
+        accent
+      />
 
-      <line x1={820} y1={358} x2={820} y2={444} stroke="#5a564e" strokeDasharray="5 4" />
-      <text x={828} y={410} fill="#8b8790" fontSize="10">
+      <line x1={680} y1={354} x2={500} y2={392} stroke="#5a564e" strokeDasharray="5 4" />
+      <text x={548} y={372} fill="#8b8790" fontSize="10">
         no DB session
       </text>
 
-      <line x1={344} y1={488} x2={344} y2={516} stroke="#5a564e" markerEnd="url(#arr)" />
+      <line x1={344} y1={468} x2={344} y2={496} stroke="#5a564e" markerEnd="url(#arr)" />
       <Box
         x={24}
-        y={520}
+        y={500}
         w={640}
-        h={72}
+        h={68}
         id="card"
         title="Decision card"
-        sub="Replay JSON · Slack Block Kit · watcher silent unless costly"
+        sub="Replay JSON · Slack Block Kit · no raw Slack quotes"
         selected={selected}
         onSelect={onSelect}
       />
@@ -506,7 +533,7 @@ function Box({
           <foreignObject x={x + 16} y={y + 80} width={w - 32} height={120}>
             <div className="text-[11px] leading-snug text-[#8b8790]">{sub}</div>
             <div className="text-[11px] leading-snug text-[#8faf86] mt-2">
-              Vertex or API key. Called only by gemini_client.py.
+              Notes only. Vertex or API key. gemini_client.py.
             </div>
           </foreignObject>
         </>
