@@ -84,16 +84,16 @@
       <line x1="344" y1="168" x2="344" y2="186" stroke="#5a564e" marker-end="url(#arr)" />
       <rect x="24" y="190" width="640" height="64" rx="8" fill="#171a21" stroke="#2a2e38" />
       <text x="38" y="216" fill="#e8e4db" font-size="14" font-weight="500">Cloud Run · FastAPI</text>
-      <text x="38" y="236" fill="#8b8790" font-size="11">ikigai.api:app · ACK &lt; 3s · gemini_client.py</text>
+      <text x="38" y="236" fill="#8b8790" font-size="11">ikigai.api:app · ACK &lt; 3s then lookup · gemini_client.py</text>
       <line x1="344" y1="254" x2="344" y2="272" stroke="#5a564e" marker-end="url(#arr)" />
       <rect x="24" y="276" width="640" height="78" rx="8" fill="#171a21" stroke="#2a2e38" />
       <text x="38" y="306" fill="#e8e4db" font-size="14" font-weight="500">ADK sequential pipeline</text>
-      <text x="38" y="328" fill="#8b8790" font-size="11">prefilter → gate → cheap probes → retrieve → rank → lookup</text>
+      <text x="38" y="328" fill="#8b8790" font-size="11">prefilter → gate → probes → retrieve → rank → lookup LOW or MEDIUM</text>
       <text x="704" y="102" fill="#8faf86" font-size="11" letter-spacing="0.14em">GEMINI</text>
       <rect x="704" y="112" width="232" height="242" rx="8" fill="#141a16" stroke="#8faf86" />
       <text x="720" y="148" fill="#8faf86" font-size="11" letter-spacing="0.08em">MODELS</text>
       <text x="720" y="178" fill="#e8e4db" font-size="20" font-family="Fraunces, Georgia, serif">Gemini 3.5</text>
-      <text x="720" y="206" fill="#8b8790" font-size="11">flash-lite gate · flash lookup</text>
+      <text x="720" y="206" fill="#8b8790" font-size="11">flash-lite gate · flash lookup LOW/MEDIUM</text>
       <text x="720" y="224" fill="#8b8790" font-size="11">embed rank · probes are heuristic</text>
       <text x="720" y="250" fill="#8faf86" font-size="11">Notes only. No raw Slack quotes.</text>
       <text x="720" y="268" fill="#8faf86" font-size="11">Vertex or API key. gemini_client.py.</text>
@@ -127,7 +127,7 @@
       <thead><tr><th>From</th><th>To</th><th>How</th></tr></thead>
       <tbody>
         <tr><td>Replay UI</td><td>FastAPI</td><td class="ok">fetch POST /api/run — no Gemini key in the browser</td></tr>
-        <tr><td>Slack</td><td>Guard</td><td class="ok">HMAC v0 signature · drop x-slack-retry-num · then Bolt ACK</td></tr>
+        <tr><td>Slack</td><td>Guard</td><td class="ok">HMAC v0 signature · drop x-slack-retry-num · Bolt ACK in &lt;3s, then lookup</td></tr>
         <tr><td>MCP / Replay</td><td>Guard</td><td class="ok">IKIGAI_API_TOKEN on Cloud Run for /api and /mcp</td></tr>
         <tr><td>FastAPI</td><td>Gemini 3.5</td><td class="ok">untrusted notes via gemini_client.py — not raw Slack quotes</td></tr>
         <tr><td>FastAPI</td><td>Firestore</td><td class="ok">graph().upsert · labels, status, permalinks, edges</td></tr>
@@ -143,7 +143,7 @@
           <li><span class="n">1</span><span>Guard: Slack HMAC, Cloud Run API token, drop Events API retries. Then /api/run, /slack/*, or /mcp/*.</span></li>
           <li><span class="n">2</span><span>Prefilter drops chatter with no model. Watcher gate uses Flash-Lite on untrusted text. Commands skip the gate.</span></li>
           <li><span class="n">3</span><span>Cheap probes are heuristic — no Gemini. Retrieve Slack + Firestore, then pack thread notes.</span></li>
-          <li><span class="n">4</span><span>embed() ranks in memory and drops vectors. Flash lookup reads notes only. Never a raw Slack quote.</span></li>
+          <li><span class="n">4</span><span>embed() ranks in memory and drops vectors. Flash lookup reads notes only. Thinking LOW on a clear hit, MEDIUM when more context is needed. Never a raw Slack quote.</span></li>
           <li><span class="n">5</span><span>FastAPI writes derived labels to Firestore and returns a card. Gemini never sees the database.</span></li>
         </ol>
       </div>

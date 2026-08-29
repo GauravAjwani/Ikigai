@@ -1,4 +1,9 @@
-export type Channel = { id: string; name: string; purpose: string };
+export type Channel = {
+  id: string;
+  name: string;
+  purpose: string;
+  kind?: "channel" | "dm" | "group";
+};
 export type Message = {
   channel_id: string;
   channel_name: string;
@@ -72,6 +77,10 @@ export type Briefing = {
   greeting: string;
   happened: string;
   items: BriefItem[];
+  since_logout?: boolean;
+  missed?: number;
+  logged_in_at?: number | null;
+  logged_out_at?: number | null;
 };
 
 const j = async (url: string, init?: RequestInit) => {
@@ -89,14 +98,20 @@ const j = async (url: string, init?: RequestInit) => {
 
 export const api = {
   health: () => j("/api/health"),
-  workspace: (channelId?: string) =>
-    j(`/api/workspace${channelId ? `?channel_id=${encodeURIComponent(channelId)}` : ""}`),
+  workspace: (channelId?: string, userLabel?: string) => {
+    const q = new URLSearchParams();
+    if (channelId) q.set("channel_id", channelId);
+    if (userLabel) q.set("user_label", userLabel);
+    const s = q.toString();
+    return j(`/api/workspace${s ? `?${s}` : ""}`);
+  },
   run: (body: {
     text: string;
     channel_id: string;
     path: string;
     post?: boolean;
     all_channels?: boolean;
+    user_label?: string;
   }) => j("/api/run", { method: "POST", body: JSON.stringify(body) }),
   check: (body: { text: string; channel_id: string; all_channels?: boolean }) =>
     j("/api/check", { method: "POST", body: JSON.stringify({ ...body, path: "check" }) }),

@@ -102,9 +102,12 @@ def collect_since(
             pass
     if all_channels:
         try:
-            others = store.channels()[:6]
+            others = list(store.channels())
         except Exception:
             others = []
+        # Live Slack: cap history fan-out. Fixture Replay must see every chat.
+        if type(store).__name__ != "FixtureSlack":
+            others = others[:12]
         for ch in others:
             if channel_id and ch.id == channel_id:
                 continue
@@ -177,9 +180,17 @@ def fallback_briefing(
     meat = _decision_pool(messages)
     seen = notable(messages)
     if not seen and not meat:
+        if messages:
+            n = len(messages)
+            happened = (
+                f"{n} message{'s' if n != 1 else ''} while you were away — "
+                "nothing that looks like a new call."
+            )
+        else:
+            happened = "Quiet while you were away — nothing new to catch up on."
         return Briefing(
             greeting=greeting,
-            happened="Quiet while you were away — nothing new to catch up on.",
+            happened=happened,
             attention="",
             rest="",
             items=[],

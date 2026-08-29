@@ -49,7 +49,7 @@ const NODES: Node[] = [
     id: "slack",
     title: "Slack",
     kicker: "Client",
-    body: "@Ikigai, /ikigai, /check-ikigai, and DMs hit Cloud Run at /slack/events and /slack/commands. Bolt ACKs in under 3s, then runs the same pipeline as Replay.",
+    body: "@Ikigai, /ikigai, /check-ikigai, and DMs hit Cloud Run at /slack/events and /slack/commands. Bolt ACKs in under 3s (Searching…), then lazy work runs the same pipeline as Replay and replaces the message. Waiting for Gemini before the ACK is operation_timeout.",
     talks: "HMAC-checked Events API / slash → FastAPI",
   },
   {
@@ -77,7 +77,7 @@ const NODES: Node[] = [
     id: "pipeline",
     title: "ADK pipeline",
     kicker: "Agent",
-    body: "prefilter (no model) → Flash-Lite gate on the watcher only → cheap probes (heuristic, no Gemini) → retrieve + thread notes → embed-rank-destroy → Flash lookup. Not a chat loop. Not ADK SlackRunner.",
+    body: "prefilter (no model) → Flash-Lite gate on the watcher only → cheap probes (heuristic, no Gemini) → retrieve + thread notes → embed-rank-destroy → Flash lookup (thinking LOW on a clear hit, MEDIUM when notes conflict or the match is thin). Not a chat loop. Not ADK SlackRunner.",
     talks: "Calls gemini_client, graph(), slack_store, notes.py",
   },
   {
@@ -91,7 +91,7 @@ const NODES: Node[] = [
     id: "gemini",
     title: "Gemini 3.5",
     kicker: "Models",
-    body: "Reached only from ikigai/gemini_client.py. Gate (watcher) is Flash-Lite. Lookup, briefing, and stances are Flash. Rank is gemini-embedding-001. Probes are heuristic — they do not call a model. System instruction: notes only, no jailbreaks from Slack text.",
+    body: "Reached only from ikigai/gemini_client.py. Gate (watcher) is Flash-Lite, thinking MINIMAL. Lookup is Flash: thinking LOW when one hit is already in the notes, MEDIUM when a reversal, several threads, or a weak match needs more context. Briefing and stances stay LOW. Rank is gemini-embedding-001. Probes are heuristic — they do not call a model. System instruction: notes only, no jailbreaks from Slack text.",
     talks: "google.genai.Client ← FastAPI only",
   },
   {
@@ -112,7 +112,7 @@ const NODES: Node[] = [
     id: "card",
     title: "Decision card",
     kicker: "Response",
-    body: "JSON card to Replay, Block Kit to Slack. Watcher stays silent unless a costly match. Commands always answer. Share is a user action — Ikigai does not post the private card publicly.",
+    body: "JSON card to Replay, Block Kit to Slack: Status, Confidence, Who, Now. A miss is “I didn't find a matching call” with low confidence — never Who/Now at 100%. Watcher stays silent unless a costly match. Commands always answer. Share is a user action — Ikigai does not post the private card publicly.",
     talks: "FastAPI → Replay or Slack",
   },
 ];
@@ -143,13 +143,13 @@ export default function Architecture({
 
   return (
     <div className="h-full min-h-0 overflow-auto">
-      <div className="px-6 pt-6 pb-8 max-w-[1100px]">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-[#8b8790]">System map</p>
-        <h1 className="serif text-[32px] leading-none mt-1">How Gemini is wired</h1>
-        <p className="text-[14px] text-[#8b8790] leading-relaxed mt-3 max-w-2xl">
+      <div className="px-10 pt-10 pb-12 max-w-[1100px]">
+        <p className="kicker">System map</p>
+        <h1 className="display text-[40px] leading-none mt-2">How Gemini is wired</h1>
+        <p className="text-[14px] text-[var(--muted)] leading-relaxed mt-3 max-w-2xl">
           Slack text never goes to Gemini as a prompt. It is wrapped as untrusted
           notes, ranked in memory, then discarded. FastAPI on Cloud Run is still
-          the only <code className="text-[#e8e4db]">google.genai</code> client.
+          the only <code className="text-[var(--ink)]">google.genai</code> client.
           A security edge sits in front of every hop.
         </p>
 
@@ -160,22 +160,22 @@ export default function Architecture({
           <Badge ok={Boolean(health?.slack)} label={`Store · ${storeName}`} />
         </div>
 
-        <p className="mt-5 text-[12px] text-[#8b8790]">
+        <p className="mt-5 text-[12px] text-[var(--muted)]">
           Click a box to inspect that hop. Sage arrows are the only Gemini path.
         </p>
-        <div className="mt-3 overflow-x-auto">
+        <div className="mt-3 overflow-x-auto pane rounded-[20px] p-3">
           <Diagram selected={sel} onSelect={setSel} models={models} />
         </div>
 
         <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="border border-[#2a2e38] rounded-lg p-4 bg-[#15181f]">
-            <div className="text-[11px] uppercase tracking-wider text-[#8b8790]">{selected.kicker}</div>
-            <div className="serif text-[22px] mt-1">{selected.title}</div>
-            <p className="text-[14px] leading-relaxed mt-2 text-[#e8e4db]/90">{selected.body}</p>
-            <div className="mt-3 text-[12px] text-[#8faf86]">{selected.talks}</div>
+          <div className="pane rounded-[20px] p-5">
+            <div className="kicker">{selected.kicker}</div>
+            <div className="display text-[24px] mt-1">{selected.title}</div>
+            <p className="text-[14px] font-light leading-relaxed mt-2 text-[var(--ink)]/85">{selected.body}</p>
+            <div className="mt-3 text-[12px] text-[var(--accent)]">{selected.talks}</div>
           </div>
-          <div className="border border-[#2a2e38] rounded-lg p-4">
-            <div className="text-[11px] uppercase tracking-wider text-[#8b8790]">Gemini models</div>
+          <div className="pane rounded-[20px] p-5">
+            <div className="kicker">Gemini models</div>
             <dl className="mt-3 space-y-2 text-[13px]">
               <KV k="Gate (watcher)" v={models.gate || "gemini-3.5-flash-lite"} />
               <KV k="Probes" v="heuristic — no model" />
@@ -185,14 +185,14 @@ export default function Architecture({
           </div>
         </div>
 
-        <h2 className="serif text-[22px] mt-10">Who talks to whom</h2>
-        <p className="text-[13px] text-[#8b8790] mt-1 mb-4">
+        <h2 className="display text-[26px] mt-10">Who talks to whom</h2>
+        <p className="text-[13px] text-[var(--muted)] mt-1 mb-4">
           Gemini is a backend RPC. It has no session to the Replay UI, Slack, or Firestore.
         </p>
-        <div className="overflow-x-auto border border-[#2a2e38] rounded-lg">
+        <div className="overflow-x-auto pane rounded-[20px]">
           <table className="w-full text-[13px]">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-[#8b8790] border-b border-[#2a2e38]">
+              <tr className="text-left text-[11px] uppercase tracking-wider text-[var(--muted)] border-b border-white/30">
                 <th className="py-2.5 px-4 font-medium">From</th>
                 <th className="py-2.5 px-4 font-medium">To</th>
                 <th className="py-2.5 px-4 font-medium">How</th>
@@ -211,10 +211,10 @@ export default function Architecture({
               ].map(([from, to, how], i) => {
                 const never = from === "Gemini";
                 return (
-                  <tr key={i} className="border-t border-[#2a2e38]">
+                  <tr key={i} className="border-t border-white/25">
                     <td className="py-2.5 px-4 whitespace-nowrap">{from}</td>
                     <td className="py-2.5 px-4 whitespace-nowrap">{to}</td>
-                    <td className={`py-2.5 px-4 ${never ? "text-[#d07255]" : "text-[#8b8790]"}`}>{how}</td>
+                    <td className={`py-2.5 px-4 ${never ? "text-[#8a4a3a]" : "text-[var(--muted)]"}`}>{how}</td>
                   </tr>
                 );
               })}
@@ -222,8 +222,8 @@ export default function Architecture({
           </table>
         </div>
 
-        <h2 className="serif text-[22px] mt-10">Request path</h2>
-        <p className="text-[13px] text-[#8b8790] mt-1 mb-4">
+        <h2 className="display text-[26px] mt-10">Request path</h2>
+        <p className="text-[13px] text-[var(--muted)] mt-1 mb-4">
           Guard first, then FastAPI. Gemini only sees notes.py wrappers. Embeddings die
           with the request.
         </p>
@@ -255,7 +255,8 @@ export default function Architecture({
             <Num n="4" />
             <span>
               <code>embed()</code> ranks in memory and drops the vectors. Flash lookup
-              reads notes only and writes a JSON verdict. Never a raw Slack quote.
+              reads notes only and writes a JSON verdict. Thinking is LOW on a clear
+              hit, MEDIUM when more context is needed. Never a raw Slack quote.
             </span>
           </li>
           <li className="flex gap-3">
@@ -267,15 +268,15 @@ export default function Architecture({
           </li>
         </ol>
 
-        <h2 className="serif text-[22px] mt-10">What crosses the database</h2>
+        <h2 className="display text-[26px] mt-10">What crosses the database</h2>
         <div className="mt-4 grid sm:grid-cols-2 gap-4">
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-[#8faf86] mb-2">Stored</div>
-            <ul className="text-[13px] space-y-1.5 text-[#e8e4db]/90">
+            <div className="kicker mb-2">Stored</div>
+            <ul className="text-[13px] space-y-1.5 text-[var(--ink)]/85">
               {(arch?.stored || ["derived labels", "status", "confidence", "permalinks", "edges"]).map(
                 (x) => (
                   <li key={x} className="flex gap-2">
-                    <span className="text-[#8faf86]">+</span>
+                    <span className="text-[var(--lavender)]">+</span>
                     {x}
                   </li>
                 ),
@@ -283,8 +284,8 @@ export default function Architecture({
             </ul>
           </div>
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-[#d07255] mb-2">Never stored</div>
-            <ul className="text-[13px] space-y-1.5 text-[#e8e4db]/90">
+            <div className="text-[11px] uppercase tracking-wider text-[#8a4a3a] mb-2">Never stored</div>
+            <ul className="text-[13px] space-y-1.5 text-[var(--ink)]/85">
               {(arch?.never_stored || [
                 "Slack message text",
                 "Slack user IDs",
@@ -306,8 +307,8 @@ export default function Architecture({
 
 function Badge({ ok, label }: { ok: boolean; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[#2a2e38] text-[#c8c4bc]">
-      <span className={`h-1.5 w-1.5 rounded-full ${ok ? "bg-[#8faf86]" : "bg-[#5a564e]"}`} />
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full glass-c text-[var(--muted)]">
+      <span className={`h-1.5 w-1.5 rounded-full ${ok ? "bg-[var(--accent)]" : "bg-white/20"}`} />
       {label}
     </span>
   );
@@ -316,7 +317,7 @@ function Badge({ ok, label }: { ok: boolean; label: string }) {
 function KV({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="text-[#8b8790]">{k}</dt>
+      <dt className="text-[var(--muted)]">{k}</dt>
       <dd className="text-right font-medium">{v}</dd>
     </div>
   );
@@ -324,7 +325,7 @@ function KV({ k, v }: { k: string; v: string }) {
 
 function Num({ n }: { n: string }) {
   return (
-    <span className="shrink-0 h-5 w-5 rounded-full border border-[#2a2e38] text-[11px] grid place-items-center text-[#d4a574]">
+    <span className="shrink-0 h-5 w-5 rounded-full glass-c text-[11px] grid place-items-center text-[var(--lavender)]">
       {n}
     </span>
   );
@@ -384,7 +385,7 @@ function Diagram({
         h={64}
         id="fastapi"
         title="Cloud Run · FastAPI"
-        sub="ikigai.api:app · ACK < 3s · gemini_client.py"
+        sub="ikigai.api:app · ACK < 3s then lookup · gemini_client.py"
         selected={selected}
         onSelect={onSelect}
       />
@@ -398,7 +399,7 @@ function Diagram({
         h={78}
         id="pipeline"
         title="ADK sequential pipeline"
-        sub="prefilter → gate → cheap probes → retrieve → rank → lookup"
+        sub="prefilter → gate → probes → retrieve → rank → lookup LOW or MEDIUM"
         selected={selected}
         onSelect={onSelect}
       />
@@ -463,7 +464,7 @@ function Diagram({
       />
 
       <line x1={680} y1={354} x2={500} y2={392} stroke="#5a564e" strokeDasharray="5 4" />
-      <text x={548} y={372} fill="#8b8790" fontSize="10">
+      <text x={548} y={372} fill="#6e675d" fontSize="10">
         no DB session
       </text>
 
@@ -509,8 +510,8 @@ function Box({
   tall?: boolean;
 }) {
   const on = selected === id;
-  const stroke = on ? "#d4a574" : accent ? "#8faf86" : "#2a2e38";
-  const fill = on ? "#1c1814" : accent ? "#141a16" : "#171a21";
+  const stroke = on ? "#d2c2a6" : accent ? "#9aaa90" : "rgba(255,255,255,0.2)";
+  const fill = on ? "rgba(210,186,150,0.22)" : accent ? "rgba(154,170,144,0.14)" : "rgba(255,255,255,0.07)";
   return (
     <g
       role="button"
@@ -521,30 +522,30 @@ function Box({
         if (e.key === "Enter" || e.key === " ") onSelect(id);
       }}
     >
-      <rect x={x} y={y} width={w} height={h} rx={8} fill={fill} stroke={stroke} strokeWidth={on ? 2 : 1} />
+      <rect x={x} y={y} width={w} height={h} rx={14} fill={fill} stroke={stroke} strokeWidth={on ? 1.5 : 1} />
       {tall ? (
         <>
-          <text x={x + 16} y={y + 36} fill="#8faf86" fontSize="11" letterSpacing="0.08em">
+          <text x={x + 16} y={y + 36} fill="#8a9580" fontSize="11" letterSpacing="0.08em">
             MODELS
           </text>
-          <text x={x + 16} y={y + 64} fill="#e8e4db" fontSize="20" fontFamily="Fraunces, Georgia, serif">
+          <text x={x + 16} y={y + 64} fill="#f4efe8" fontSize="20" fontFamily="Inter, system-ui, sans-serif" fontWeight={300}>
             {title}
           </text>
           <foreignObject x={x + 16} y={y + 80} width={w - 32} height={120}>
-            <div className="text-[11px] leading-snug text-[#8b8790]">{sub}</div>
-            <div className="text-[11px] leading-snug text-[#8faf86] mt-2">
+            <div className="text-[11px] leading-snug text-[var(--muted)]">{sub}</div>
+            <div className="text-[11px] leading-snug text-[var(--sage)] mt-2">
               Notes only. Vertex or API key. gemini_client.py.
             </div>
           </foreignObject>
         </>
       ) : (
         <>
-          <text x={x + 14} y={y + 28} fill="#e8e4db" fontSize="14" fontWeight={500}>
+          <text x={x + 14} y={y + 28} fill="#f4efe8" fontSize="14" fontWeight={500} fontFamily="Inter, system-ui, sans-serif">
             {title}
           </text>
           {sub ? (
             <foreignObject x={x + 14} y={y + 36} width={w - 28} height={36}>
-              <div className="text-[11px] leading-snug text-[#8b8790]">{sub}</div>
+              <div className="text-[11px] leading-snug text-[var(--muted)]">{sub}</div>
             </foreignObject>
           ) : null}
         </>

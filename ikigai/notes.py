@@ -57,7 +57,9 @@ def pack_messages(messages: list[SlackMessage], *, limit: int = 40, each: int = 
         who = (m.user_label or "member").lstrip("@") or "member"
         text = re.sub(r"\s+", " ", (m.text or "").strip())[:each]
         link = m.permalink or ""
-        lines.append(f"- {ch} @{who}: {text} permalink={link}")
+        when = (m.at or "")[:10]
+        stamp = f"{when} " if when else ""
+        lines.append(f"- {stamp}{ch} @{who}: {text} permalink={link}")
     return "\n".join(lines)
 
 
@@ -69,7 +71,9 @@ def pack_thread(messages: list[SlackMessage], permalink: str = "", *, each: int 
         text = re.sub(r"\s+", " ", (m.text or "").strip())[:each]
         if not text:
             continue
-        lines.append(f"  @{who}: {text}")
+        when = (m.at or "")[:10]
+        stamp = f"{when} " if when else ""
+        lines.append(f"  {stamp}@{who}: {text}")
     return "\n".join(lines)
 
 

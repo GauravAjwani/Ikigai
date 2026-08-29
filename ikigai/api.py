@@ -29,10 +29,7 @@ _socket_handler = None
 
 @contextmanager
 def replay_sandbox():
-    """Cloud Replay uses the fixture workspace, never live Slack or Firestore."""
-    if not on_cloud():
-        yield
-        return
+    """Replay UI always uses the fixture workspace, never live Slack or Firestore."""
     st = bind_demo_store()
     gt = bind_demo_graph()
     try:
@@ -50,7 +47,12 @@ async def lifespan(_app: FastAPI):
     # instance freezes after Slack's 3s ACK and never posts a reply.
     on_cloud_run = bool(os.environ.get("K_SERVICE"))
     in_pytest = "pytest" in __import__("sys").modules
-    if s.slack_ready() and s.slack_app_token and not on_cloud_run and not in_pytest:
+    skip_socket = on_cloud_run or in_pytest or os.environ.get("IKIGAI_NO_SOCKET", "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    if s.slack_ready() and s.slack_app_token and not skip_socket:
         from slack_bolt.adapter.socket_mode import SocketModeHandler
 
         from ikigai.slack_app import bolt
@@ -107,8 +109,12 @@ class PresenceBody(BaseModel):
     all_channels: bool = False
 
 
-_REPLAY_USER = "U-REPLAY"
-_FIXTURE_START = 1_700_000_000.0
+_REPLAY_ACCOUNTS = ("you", "priya", "marcus", "aisha")
+
+
+def _replay_uid(label: str) -> str:
+    name = (label or "you").strip().lstrip("@").lower() or "you"
+    return f"U-{name}"
 
 
 @app.get("/api/health")
@@ -121,7 +127,7 @@ def health():
         "slack": s.slack_ready(),
         "slack_http": slack_handler is not None,
         "slash_commands": ["/ikigai", "/ikigai login", "/ikigai logout", "/check-ikigai"],
-        "build": "fix-v23",
+        "build": "fix-v28",
     }
     if on_cloud():
         body["vertex"] = s.vertex_enabled or bool(s.google_cloud_project and not s.gemini_api_key)
@@ -138,22 +144,36 @@ def health():
 
 
 @app.get("/api/workspace")
-def workspace(channel_id: str | None = None):
+def workspace(channel_id: str | None = None, user_label: str = "you"):
+    from ikigai import presence
+
     with replay_sandbox():
         store = slack_store()
         channels = [c.model_dump() for c in store.channels()]
         cid = channel_id or (channels[0]["id"] if channels else "")
         messages = [m.model_dump() for m in store.history(cid)]
-        return {"channels": channels, "channel_id": cid, "messages": messages}
+        users = [{"id": _replay_uid(n), "label": n} for n in _REPLAY_ACCOUNTS]
+        away = presence.get_away(_replay_uid(user_label))
+        return {
+            "channels": channels,
+            "channel_id": cid,
+            "messages": messages,
+            "users": users,
+            "user_label": user_label,
+            "away": bool(away),
+            "away_at": away.at if away else None,
+        }
 
 
 @app.post("/api/reset")
 def reset():
-    if on_cloud():
-        reset_demo_store()
-        reset_demo_graph()
-        return {"ok": True}
-    reset_store()
+    from ikigai import presence
+
+    reset_demo_store()
+    reset_demo_graph()
+    presence.reset()
+    if not on_cloud():
+        reset_store()
     return {"ok": True}
 
 
@@ -165,7 +185,7 @@ async def run(body: WatchBody):
     with replay_sandbox():
         store = slack_store()
         posted = None
-        if body.post and body.path == "watcher":
+        if body.post:
             posted = store.post(body.channel_id, body.text, body.user_label)
 
         if body.path == "watcher" and (is_chatter(body.text) or not looks_decisionish(body.text) and len(body.text.strip()) < 40):
@@ -306,14 +326,18 @@ def api_logout(body: PresenceBody):
     from ikigai.briefing import farewell
 
     with replay_sandbox():
-        presence.logout(
-            _REPLAY_USER,
-            body.channel_id,
-            user_label=body.user_label,
-            at=_FIXTURE_START,
-        )
+        uid = _replay_uid(body.user_label)
+        rec = presence.logout(uid, body.channel_id, user_label=body.user_label)
         hour = slack_store().user_hour()
-        return {"ok": True, "text": farewell(hour), "mode": "logout"}
+        return {
+            "ok": True,
+            "text": farewell(hour),
+            "mode": "logout",
+            "user_label": body.user_label,
+            "away": True,
+            "away_at": rec.at,
+            "logged_out_at": rec.at,
+        }
 
 
 @app.post("/api/login")
@@ -326,32 +350,46 @@ def api_login(body: PresenceBody):
 
     with replay_sandbox():
         store = slack_store()
+        uid = _replay_uid(body.user_label)
         now = time_mod.time()
-        away = presence.get_away(_REPLAY_USER)
-        oldest = away.at if away else _FIXTURE_START
+        rec = presence.get_away(uid)
+        if rec:
+            oldest = rec.at
+            presence.clear_away(uid)
+        else:
+            oldest = now - 16 * 3600
+        ch = next((c for c in store.channels() if c.id == body.channel_id), None)
+        dm = bool(ch and getattr(ch, "kind", "channel") == "dm" and ch.id == "D-IKIGAI")
+        scope = "across the chats you can access" if dm else "in this channel"
         messages = collect_since(
             store,
             channel_id=body.channel_id,
             oldest=oldest,
-            all_channels=True,
+            all_channels=dm,
         )
         hour = store.user_hour()
         name = (body.user_label or "you").strip()
-        if "pytest" in sys.modules:
-            briefing = fallback_briefing(messages, hour=hour, name=name, scope="fixture workspace")
-        else:
+        use_llm = "pytest" not in sys.modules and get_settings().gemini_ready()
+        if use_llm:
             briefing = build_briefing(
                 messages,
                 hour=hour,
                 name=name,
-                scope="fixture workspace",
+                scope=scope,
                 away_at=oldest,
                 now_at=now,
             )
+        else:
+            briefing = fallback_briefing(messages, hour=hour, name=name, scope=scope)
         if not (briefing.greeting or "").strip():
             briefing.greeting = default_greeting(hour, name)
-        presence.clear_away(_REPLAY_USER)
-        return briefing.model_dump()
+        payload = briefing.model_dump()
+        payload["away"] = False
+        payload["since_logout"] = bool(rec)
+        payload["missed"] = len(messages)
+        payload["logged_out_at"] = rec.at if rec else None
+        payload["logged_in_at"] = now
+        return payload
 
 
 @app.get("/api/evals")

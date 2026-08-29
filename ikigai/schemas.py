@@ -36,6 +36,7 @@ class Channel(BaseModel):
     id: str
     name: str
     purpose: str
+    kind: Literal["channel", "dm", "group"] = "channel"
 
 
 class DerivedDecision(BaseModel):

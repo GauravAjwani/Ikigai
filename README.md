@@ -15,7 +15,9 @@ You do **not** need a Slack workspace, GCP project, or Vertex account to evaluat
 3. **Hosted Replay** (no Slack, no laptop):
    - App: https://ikigai-uipuf5bksa-uc.a.run.app
    - Health: https://ikigai-uipuf5bksa-uc.a.run.app/api/health
-   - Open the app. Fixture messages are already in the thread. Use the chips: **@Ikigai**, **/ikigai**, **DM**, **/check-ikigai**, **login**, **logout**, or **Channel post**. Try `/ikigai` with `Let's rotate tokens every night.` then `/check-ikigai` with `priya`.
+   - Open the app. Fixture threads stay in each channel. Switch accounts with **@you / @priya / @marcus / @aisha**.
+   - Logout is per account. As @priya, **/ikigai logout**, switch to @marcus, **Message** a proposal, switch back, **/ikigai login**. Catch-up is only what landed while Priya was away — not the whole fixture history.
+   - Direct messages: **ikigai** (bot, searches every chat), **priya**, **marcus**, **aisha**. Private groups: **core-leads**, **oncall-leads**, **growth-leads** — each with its own thread.
    - That UI is a **demo corpus**, not your live Slack. `@Ikigai` in Slack is the live agent.
 4. **Architecture diagram** (upload this on Devpost): [`docs/architecture.html`](docs/architecture.html) or [`docs/ikigai-architecture.pdf`](docs/ikigai-architecture.pdf).
 5. Private repo access: add `testing@devpost.com` and `cloudhackathons@google.com` as collaborators.
@@ -37,7 +39,7 @@ The hosted URL is Cloud Run: Replay (fixture workspace) plus Slack HTTP events. 
 
 `/check-ikigai` needs a Slack `@username`, not a free-text name.
 
-A card leads with one warm line (`This was already decided` / `Heads up — this was later reversed` / `Two live approaches here`), then **Status**, **Who** (`@username`), **Now**, and **Open thread**.
+A card leads with one warm line (`This was already decided` / `Heads up — this was later reversed` / `Two live approaches here` / `I didn't find a matching call`), then **Status**, **Confidence**, **Who** (`@username`), **Now**, and **Open thread**. A miss does not fill Who or Now, and confidence stays low — never 100% on a guess.
 
 ## Stack
 
@@ -47,7 +49,7 @@ A card leads with one warm line (`This was already decided` / `Heads up — this
 | Google agent framework | Google ADK — `root_agent` in `ikigai/agent.py` |
 | GCP | Cloud Run, Firestore, Vertex AI (Pub/Sub enabled on deploy) |
 
-Search, login, and check use **one** Flash call each (`thinking=LOW`). The unsolicited watcher adds a Flash-Lite gate (`thinking=MINIMAL`). Probes are heuristic (no model).
+Search, login, and check use **one** Flash call each. Lookup thinking is **LOW** when one clear hit is already in a small set of notes, and **MEDIUM** only when notes conflict, several threads compete, or the match is thin. The unsolicited watcher adds a Flash-Lite gate (`thinking=MINIMAL`). Probes are heuristic (no model).
 
 ## Architecture
 
@@ -55,7 +57,7 @@ Search, login, and check use **one** Flash call each (`thinking=LOW`). The unsol
 Slash / @mention / DM / Replay UI
         │
         ▼
-Cloud Run  (ACK < 3s)
+Cloud Run  (ACK < 3s, then lookup)
         │
         ▼
 ┌──────────────────────────────────────┐
@@ -66,6 +68,7 @@ Cloud Run  (ACK < 3s)
 │  3. Retrieve — Slack + graph         │
 │  4. Transient embed-rank-destroy     │
 │  5. Adjudicate — gemini-3.5-flash    │
+│     thinking LOW, or MEDIUM if needed│
 └──────────────────────────────────────┘
         │
         ▼
@@ -121,6 +124,8 @@ cd ..
 python -m uvicorn ikigai.api:app --host 0.0.0.0 --port 43177
 ```
 
+On Windows, if `.env` has Slack tokens, set `IKIGAI_NO_SOCKET=1` so uvicorn does not start Socket Mode (that path fails TLS on some laptops). Cloud Run always uses HTTP events, not Socket Mode.
+
 Open http://127.0.0.1:43177
 
 - **Workspace** — pick a fixture channel, paste a proposal, Run.
@@ -174,7 +179,7 @@ Replay does not need this. This is how the Cloud Run service becomes `@Ikigai` i
    - **Interactivity** request URL: same as events
 6. In each channel: `/invite @Ikigai`.
 
-**Local Slack (laptop only):** set `SLACK_APP_TOKEN` (`xapp-…`) and turn **Socket Mode** on for that app. Cloud Run must use HTTP events, not Socket Mode.
+**Local Slack (laptop only):** set `SLACK_APP_TOKEN` (`xapp-…`) and turn **Socket Mode** on for that app. Cloud Run must use HTTP events, not Socket Mode. Slash and mention ACKs return in under 3s (`Searching decision history…`); the card is posted afterward via `response_url` / `chat.update`. Do not wait for Gemini before the ACK — that is what Slack surfaces as `operation_timeout`.
 
 Leave `SLACK_USER_TOKEN` empty unless you have a user token with `search:read`. Without it, Ikigai scans `conversations.history` on channels the bot is in.
 

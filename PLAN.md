@@ -122,8 +122,8 @@ Pub/Sub
 │       Slack RTS (≤3 parallel)        │
 │  5. Transient rank  gemini-embedding │── destroyed after request
 │  6. Adjudicate  gemini-3.5-flash     │
-│     thinking_level = LOW             │
-│     same? current? reversed? fork?   │
+│     thinking_level = LOW, or MEDIUM  │
+│     when notes conflict / thin match │
 └──────────────────────────────────────┘
         │
         ▼
@@ -219,7 +219,7 @@ Genkit is a valid alternative (flows fit this pipeline). We still pick **ADK** b
 | Gate | 3.5 Flash-Lite | MINIMAL | ~400 in / ~40 out | ~$0.0002 |
 | Probes | 3.5 Flash-Lite | MINIMAL | ~600 in / ~200 out | ~$0.0007 |
 | Embed | embedding-001 | — | ~2.5k in | ~$0.0004 |
-| Adjudicate | 3.5 Flash | LOW | ~3k in / ~800 out incl. thinking | ~$0.012 |
+| Adjudicate | 3.5 Flash | LOW, or MEDIUM if notes conflict | ~3k in / ~800 out incl. thinking | ~$0.012 |
 | **Full pipeline** | | | | **~$0.014** |
 
 Chatter never reaches a model (prefilter). Non-decisions that look linguistic still hit only the gate.
@@ -241,7 +241,7 @@ Do **not** run a 700-search live Slack benchmark on the first credits. That is h
 - `IKIGAI_DAILY_BUDGET_USD` default `10`
 - Token + USD meter per stage, written to Firestore `meter/daily`
 - If meter ≥ budget: watcher goes fully silent; slash commands return “budget paused”
-- `thinking_level` is set in code, not left at Flash’s default (default thinking would 5–10× the bill)
+- `thinking_level` is set in code (MINIMAL / LOW, MEDIUM only when lookup needs more context), not left at Flash’s default (default thinking would 5–10× the bill)
 - Cloud Run `minScale=0`, `maxScale=2`
 - Billing budget alert at $10 / $25 / $40 in GCP (manual step when credits arrive)
 - No Vertex Vector Search, no always-on GPU, no channel backfill job
@@ -320,7 +320,7 @@ Until then, local work can proceed on fixtures + `GEMINI_API_KEY` only. **This p
 
 | Risk | Mitigation |
 |---|---|
-| Flash default thinking blows the budget | Hard-code MINIMAL/LOW; meter; kill switch |
+| Flash default thinking blows the budget | Hard-code MINIMAL/LOW, MEDIUM only when lookup needs more context; meter; kill switch |
 | Slack RTS rate limit | ≤3 searches/trigger; command ACK; no backfill job |
 | ADK SlackRunner temptation | Do not import it |
 | Storing text “just for debug” | Inspector CI; no log of message bodies |

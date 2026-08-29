@@ -13,6 +13,28 @@ CHANNELS = [
     Channel(id="C-NOTIFY", name="notifications", purpose="Email, push, SMS fanout"),
     Channel(id="C-INCIDENTS", name="incidents", purpose="Live incident channel"),
     Channel(id="C-RANDOM", name="random", purpose="Watercooler"),
+    Channel(
+        id="G-CORE",
+        name="core-leads",
+        purpose="Private group · hiring and headcount",
+        kind="group",
+    ),
+    Channel(
+        id="G-ONCALL",
+        name="oncall-leads",
+        purpose="Private group · pager coverage",
+        kind="group",
+    ),
+    Channel(
+        id="G-GROWTH",
+        name="growth-leads",
+        purpose="Private group · activation before spend",
+        kind="group",
+    ),
+    Channel(id="D-IKIGAI", name="ikigai", purpose="Direct message with Ikigai", kind="dm"),
+    Channel(id="D-PRIYA", name="priya", purpose="1:1 with Priya", kind="dm"),
+    Channel(id="D-MARCUS", name="marcus", purpose="1:1 with Marcus", kind="dm"),
+    Channel(id="D-AISHA", name="aisha", purpose="1:1 with Aisha", kind="dm"),
 ]
 
 
@@ -46,9 +68,8 @@ MESSAGES: list[SlackMessage] = [
         "security",
         "1710000000.100",
         "priya",
-        "Synchronized credential renewal caused a cascade of 401 errors last night. "
-        "Every service hit IAM at 00:00 and the token endpoint melted. "
-        "Proposal: stagger renewal per service, and do not run a global nightly rotation job.",
+        "ugh last night every service hit IAM at midnight and the token endpoint just died, cascade of 401s. "
+        "can we stagger renewal per service? i don't want a global nightly rotation job, that's what melted us.",
         "2024-03-12T09:14:00Z",
     ),
     _m(
@@ -56,9 +77,8 @@ MESSAGES: list[SlackMessage] = [
         "security",
         "1710000060.101",
         "marcus",
-        "Agreed. The blast radius is the problem, not rotation itself. "
-        "We'll spread renewals across a 6-hour window keyed by service id. "
-        "No more synchronized midnight job. That's the decision.",
+        "yeah the blast radius is the problem, not rotating itself. "
+        "we'll spread renewals across a 6-hour window keyed by service id. no more synchronized midnight job.",
         "2024-03-12T09:18:00Z",
         "1710000000.100",
     ),
@@ -67,7 +87,7 @@ MESSAGES: list[SlackMessage] = [
         "security",
         "1710000120.102",
         "priya",
-        "Logged. Staggered per-service renewal is policy as of today.",
+        "ok cool, from now on we stagger per service. i'll drop a note in the runbook.",
         "2024-03-12T09:22:00Z",
         "1710000000.100",
     ),
@@ -77,9 +97,9 @@ MESSAGES: list[SlackMessage] = [
         "security",
         "1737000000.200",
         "aisha",
-        "Revisiting credential renewal. Platform shipped a lock-free rotator with jitter "
-        "and a dedicated token pool. The 401 cascade cannot recur. "
-        "I want to reverse the staggered-only policy and allow a single nightly rotation window again.",
+        "hey circling back on credential renewal — platform shipped a lock-free rotator with jitter "
+        "and a dedicated token pool so that 401 pileup shouldn't happen again. "
+        "can we go back to one nightly window? the stagger-only thing feels like leftover caution.",
         "2025-01-16T15:02:00Z",
     ),
     _m(
@@ -87,8 +107,8 @@ MESSAGES: list[SlackMessage] = [
         "security",
         "1737000120.201",
         "marcus",
-        "The original failure mode is gone. Nightly global rotation is allowed again, "
-        "provided the lock-free rotator stays in the path. Reversing March 2024 policy.",
+        "yeah the original failure mode is gone. nightly global rotation is fine again "
+        "as long as the lock-free rotator stays in the path. going forward that's how we do it.",
         "2025-01-16T15:10:00Z",
         "1737000000.200",
     ),
@@ -98,8 +118,8 @@ MESSAGES: list[SlackMessage] = [
         "platform",
         "1712000000.300",
         "dev",
-        "We keep shipping kill switches as environment variables and then forgetting which Cloud Run revision has them. "
-        "From now on runtime flags go through LaunchDarkly. Env vars are for boot-time config only.",
+        "we keep shipping kill switches as env vars and then nobody remembers which Cloud Run revision has them. "
+        "from now on runtime flags go through LaunchDarkly. env vars are just for boot-time config.",
         "2024-04-02T11:00:00Z",
     ),
     _m(
@@ -107,7 +127,7 @@ MESSAGES: list[SlackMessage] = [
         "platform",
         "1712000200.301",
         "sam",
-        "That's the decision. No new feature gates in env. Existing ones migrate by end of quarter.",
+        "yeah let's do that. no new feature gates in env. existing ones we migrate by end of quarter.",
         "2024-04-02T11:08:00Z",
         "1712000000.300",
     ),
@@ -117,8 +137,8 @@ MESSAGES: list[SlackMessage] = [
         "payments",
         "1714000000.400",
         "lin",
-        "Ledger workers need exactly-once and SQL transactions. We will keep using Postgres SKIP LOCKED as the queue. "
-        "Not Pub/Sub. Dual-write into a bus would split the transaction boundary.",
+        "ledger workers need exactly-once and actual SQL transactions so we will keep using Postgres SKIP LOCKED as the queue. "
+        "not Pub/Sub — dual-write into a bus would split the transaction boundary and i'm not doing that.",
         "2024-04-25T16:40:00Z",
     ),
     _m(
@@ -126,7 +146,7 @@ MESSAGES: list[SlackMessage] = [
         "payments",
         "1714000300.401",
         "ravi",
-        "Decision stands: payments stays on Postgres as the work queue.",
+        "sounds good, payments stays on postgres for the work queue.",
         "2024-04-25T16:51:00Z",
         "1714000000.400",
     ),
@@ -135,8 +155,8 @@ MESSAGES: list[SlackMessage] = [
         "notifications",
         "1714100000.410",
         "june",
-        "Fanout is fine being at-least-once. We are standardizing on Pub/Sub plus idempotent handlers. "
-        "Postgres as a queue would idle-lock us at peak send.",
+        "fanout is fine being at-least-once. we should standardize on Pub/Sub plus idempotent handlers. "
+        "postgres as a queue would idle-lock us at peak send.",
         "2024-04-26T10:12:00Z",
     ),
     _m(
@@ -144,7 +164,7 @@ MESSAGES: list[SlackMessage] = [
         "notifications",
         "1714100180.411",
         "dev",
-        "Approved. Notifications: Pub/Sub. This is not a company-wide queue standard.",
+        "yep notifications on Pub/Sub. this isn't a company-wide queue thing, just us.",
         "2024-04-26T10:20:00Z",
         "1714100000.410",
     ),
@@ -154,9 +174,8 @@ MESSAGES: list[SlackMessage] = [
         "incidents",
         "1718000000.500",
         "oncall",
-        "Postmortem from Saturday: we waited 50 minutes to tell customers the checkout button 500'd. "
-        "New rule: SEV2 or worse requires an external status update within 30 minutes of declare. "
-        "Internal chatter is not a substitute.",
+        "postmortem from saturday — we sat 50 minutes before telling customers the checkout button 500'd. "
+        "from now on SEV2 or worse, status page within 30 minutes of declare. slack is not a substitute.",
         "2024-06-10T13:00:00Z",
     ),
     _m(
@@ -164,7 +183,7 @@ MESSAGES: list[SlackMessage] = [
         "incidents",
         "1718000400.501",
         "sasha",
-        "That's policy. Status page first, Slack second. Freeze deploys for SEV1 until commander lifts it.",
+        "yeah status page first, slack second. freeze deploys for SEV1 until the commander lifts it.",
         "2024-06-10T13:12:00Z",
         "1718000000.500",
     ),
@@ -174,9 +193,9 @@ MESSAGES: list[SlackMessage] = [
         "security",
         "1720000000.600",
         "priya",
-        "Copilot-authored diffs in the session cookie parser slipped past review. "
-        "Decision: any change under /auth or /iam needs a second human reviewer who is not the author, "
-        "even if an agent wrote the patch. No exceptions for 'small refactors'.",
+        "copilot diffs in the session cookie parser slipped past review. "
+        "going forward anything under /auth or /iam needs a second human who isn't the author, "
+        "even if an agent wrote the patch. no 'it's a small refactor' exceptions.",
         "2024-07-03T18:20:00Z",
     ),
     _m(
@@ -184,7 +203,7 @@ MESSAGES: list[SlackMessage] = [
         "security",
         "1720000500.601",
         "aisha",
-        "Recording that as the review bar for identity code.",
+        "yep that's the bar for identity code.",
         "2024-07-03T18:31:00Z",
         "1720000000.600",
     ),
@@ -194,8 +213,8 @@ MESSAGES: list[SlackMessage] = [
         "platform",
         "1722000000.700",
         "sam",
-        "Procurement already signed Datadog through 2027. We are not evaluating New Relic or Grafana Cloud "
-        "for production APM this year. Use Datadog or you pay from team budget.",
+        "procurement already signed Datadog through 2027. we are not evaluating New Relic or Grafana Cloud "
+        "for production APM this year. use Datadog or it comes out of your team budget.",
         "2024-07-26T09:00:00Z",
     ),
     _m(
@@ -203,7 +222,7 @@ MESSAGES: list[SlackMessage] = [
         "platform",
         "1722000120.701",
         "dev",
-        "Clear. Datadog is the production observability standard until the contract ends.",
+        "got it, Datadog until the contract ends.",
         "2024-07-26T09:05:00Z",
         "1722000000.700",
     ),
@@ -213,8 +232,8 @@ MESSAGES: list[SlackMessage] = [
         "security",
         "1725000000.800",
         "legal",
-        "Support exports were keeping raw cardholder emails in Cloud Storage for 18 months. "
-        "Decision: support artifacts with PII expire at 30 days. Legal hold is the only exception, ticketed.",
+        "support exports have been sitting on raw cardholder emails in Cloud Storage for 18 months. "
+        "from now on those PII artifacts go away after 30 days. legal hold is the only exception, and it has to be ticketed.",
         "2024-08-30T14:44:00Z",
     ),
     _m(
@@ -222,7 +241,7 @@ MESSAGES: list[SlackMessage] = [
         "security",
         "1725000240.801",
         "priya",
-        "I'll put the lifecycle rule on the bucket. 30 days is the number.",
+        "i'll put the lifecycle rule on the bucket. 30 days.",
         "2024-08-30T14:50:00Z",
         "1725000000.800",
     ),
@@ -232,8 +251,8 @@ MESSAGES: list[SlackMessage] = [
         "platform",
         "1728000000.900",
         "marcus",
-        "We are not going multi-region for checkout this year. Failover is restore-from-backup in us-central1. "
-        "Latency to EU is accepted. Do not spin a second Cloud SQL primary.",
+        "we're not going multi-region for checkout this year. failover is restore-from-backup in us-central1. "
+        "latency to EU we just live with. please don't spin up a second Cloud SQL primary.",
         "2024-10-04T12:00:00Z",
     ),
     _m(
@@ -241,7 +260,7 @@ MESSAGES: list[SlackMessage] = [
         "platform",
         "1728000360.901",
         "sam",
-        "Decision: single-region, us-central1, until Q3 next year review.",
+        "ok, single-region us-central1 until we look at it again Q3 next year.",
         "2024-10-04T12:08:00Z",
         "1728000000.900",
     ),
@@ -251,8 +270,8 @@ MESSAGES: list[SlackMessage] = [
         "platform",
         "1730000000.110",
         "dev",
-        "Splitting payments into its own GitHub org would break our release train. "
-        "We stay in the monorepo. Extract a package, not a repository.",
+        "if we split payments into its own GitHub org the release train falls over. "
+        "we stay in the monorepo. extract a package, not a repo.",
         "2024-10-27T17:30:00Z",
     ),
     _m(
@@ -260,7 +279,7 @@ MESSAGES: list[SlackMessage] = [
         "platform",
         "1730000180.111",
         "lin",
-        "Yes. Monorepo stays. No new service repos without a written exception from platform.",
+        "yeah monorepo stays. no new service repos unless platform actually writes an exception.",
         "2024-10-27T17:36:00Z",
         "1730000000.110",
     ),
@@ -275,6 +294,126 @@ MESSAGES: list[SlackMessage] = [
     _m("C-INCIDENTS", "incidents", "1731004000.008", "oncall", "ack", "2024-11-08T13:00:00Z"),
     _m("C-SECURITY", "security", "1731005000.009", "aisha", "nice catch on the screenshot in the doc", "2024-11-08T14:00:00Z"),
     _m("C-RANDOM", "random", "1731006000.010", "marcus", "anyone want bagels", "2024-11-08T15:00:00Z"),
+    # --- Direct messages and a private group (distinct from the public channels) ---
+    _m(
+        "G-CORE",
+        "core-leads",
+        "1732000000.501",
+        "priya",
+        "hiring freeze stays. only exception is one SRE for the pager, not a general backfill.",
+        "2024-11-19T10:00:00Z",
+    ),
+    _m(
+        "G-CORE",
+        "core-leads",
+        "1732000120.502",
+        "marcus",
+        "agreed. one SRE seat, no other reqs until Q2. i'll tell recruiting today.",
+        "2024-11-19T10:04:00Z",
+        "1732000000.501",
+    ),
+    _m(
+        "G-CORE",
+        "core-leads",
+        "1732000240.503",
+        "aisha",
+        "ok freeze holds, just the one SRE.",
+        "2024-11-19T10:08:00Z",
+        "1732000000.501",
+    ),
+    _m(
+        "D-PRIYA",
+        "priya",
+        "1732100000.601",
+        "priya",
+        "on that vendor SOC2 exception — we're not waiving it. they can sit as subprocessors-only until the report is done.",
+        "2024-11-20T16:12:00Z",
+    ),
+    _m(
+        "D-PRIYA",
+        "priya",
+        "1732100200.602",
+        "you",
+        "got it. no production data in that tool until SOC2 is on file.",
+        "2024-11-20T16:18:00Z",
+        "1732100000.601",
+    ),
+    _m(
+        "D-MARCUS",
+        "marcus",
+        "1732200000.701",
+        "marcus",
+        "weekend pager — we keep the existing rotation. no dedicated weekend-only oncall. swap internally if someone needs the saturday.",
+        "2024-11-21T09:02:00Z",
+    ),
+    _m(
+        "D-MARCUS",
+        "marcus",
+        "1732200300.702",
+        "you",
+        "fine by me. i'll cover this saturday so maya can be at the wedding.",
+        "2024-11-21T09:10:00Z",
+        "1732200000.701",
+    ),
+    _m(
+        "D-IKIGAI",
+        "ikigai",
+        "1732300000.801",
+        "you",
+        "are we still not doing a weekend-only oncall?",
+        "2024-11-22T11:00:00Z",
+    ),
+    _m(
+        "G-ONCALL",
+        "oncall-leads",
+        "1732400000.901",
+        "marcus",
+        "follow-the-sun is off the table this year. US hours only. EMEA waits for the morning handoff, no extra region seat.",
+        "2024-11-25T14:20:00Z",
+    ),
+    _m(
+        "G-ONCALL",
+        "oncall-leads",
+        "1732400180.902",
+        "aisha",
+        "yeah no APAC pager hire. i'll put the handoff in the runbook.",
+        "2024-11-25T14:28:00Z",
+        "1732400000.901",
+    ),
+    _m(
+        "G-GROWTH",
+        "growth-leads",
+        "1732500000.911",
+        "aisha",
+        "no paid ads until week-1 activation is at 40%. spend isn't going to paper over the onboarding hole.",
+        "2024-11-27T11:05:00Z",
+    ),
+    _m(
+        "G-GROWTH",
+        "growth-leads",
+        "1732500240.912",
+        "priya",
+        "agreed, pause the ads rec. activation first, then we reopen budget.",
+        "2024-11-27T11:12:00Z",
+        "1732500000.911",
+    ),
+    _m(
+        "D-AISHA",
+        "aisha",
+        "1732600000.921",
+        "aisha",
+        "LaunchDarkly stays. i don't want a second flag vendor for growth experiments. reuse the platform project.",
+        "2024-11-28T18:40:00Z",
+    ),
+    _m(
+        "D-AISHA",
+        "aisha",
+        "1732600300.922",
+        "you",
+        "understood. growth experiments go in the existing LaunchDarkly project, not Split.",
+        "2024-11-28T18:46:00Z",
+        "1732600000.921",
+    ),
 ]
 
 

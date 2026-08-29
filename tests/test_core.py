@@ -138,10 +138,218 @@ def test_notes_blob_goes_deeper_on_top_hits():
     lines = blob.split("\n")
     assert len(lines) == 8
     assert "status=reversed" in lines[0]
-    assert lines[0].count("A") == 1100
-    assert lines[3].count("A") == 1100
-    assert lines[4].count("A") == 450
-    assert lines[7].count("A") == 450
+    assert lines[0].count("A") == 1375
+    assert lines[4].count("A") == 1375
+    assert lines[5].count("A") == 560
+    assert lines[7].count("A") == 560
+
+
+def test_lookup_thinking_is_low_on_a_clear_hit():
+    from ikigai.pipeline import _lookup_thinking, _notes_blob
+    from ikigai.schemas import RankedCandidate
+
+    ranked = [
+        RankedCandidate(
+            permalink="https://example.test/p1",
+            channel_id="C-SECURITY",
+            thread_ts="1",
+            snippet="we'll spread renewals across a 6-hour window keyed by service id",
+            score=0.86,
+            graph_status="reversed",
+        )
+    ]
+    q = "whats the time window for renewals keyed by service id"
+    assert _lookup_thinking(q, ranked) == "LOW"
+    blob = _notes_blob(ranked, rich=False)
+    assert "6-hour window" in blob
+    assert len(blob.split("\n")) == 1
+
+
+def test_lookup_thinking_is_medium_when_calls_conflict():
+    from ikigai.pipeline import _lookup_thinking, _notes_blob
+    from ikigai.schemas import RankedCandidate
+
+    ranked = [
+        RankedCandidate(
+            permalink="https://example.test/p1",
+            channel_id="C-SECURITY",
+            thread_ts="1",
+            snippet="stagger renewals per service, no global nightly job",
+            score=0.7,
+            graph_status="reversed",
+        ),
+        RankedCandidate(
+            permalink="https://example.test/p2",
+            channel_id="C-SECURITY",
+            thread_ts="2",
+            snippet="nightly global rotation is fine again with the lock-free rotator",
+            score=0.65,
+            graph_status="current",
+        ),
+    ]
+    assert _lookup_thinking("renewals", ranked) == "MEDIUM"
+    rich = _notes_blob(ranked, rich=True)
+    tight = _notes_blob(ranked, rich=False)
+    assert len(rich) >= len(tight)
+
+
+def test_lookup_thinking_is_medium_on_a_thin_match():
+    from ikigai.pipeline import _lookup_thinking
+    from ikigai.schemas import RankedCandidate
+
+    ranked = [
+        RankedCandidate(
+            permalink="https://example.test/p3",
+            channel_id="C-RANDOM",
+            thread_ts="3",
+            snippet="lunch at noon in the kitchen",
+            score=0.2,
+        )
+    ]
+    assert _lookup_thinking("credential rotation window", ranked) == "MEDIUM"
+
+
+def test_honest_verdict_caps_false_certainty():
+    from ikigai.pipeline import _honest_verdict, _no_match_card
+    from ikigai.schemas import Verdict
+    from ikigai.slack_app import _blocks
+
+    v = _honest_verdict(
+        Verdict(
+            same_decision=False,
+            status="unknown",
+            confidence=1.0,
+            answer=(
+                "Marcus initially decided to stagger renewals across a 6-hour window "
+                "keyed by service ID, but this decision has been reversed. "
+                "Renewals are now handled by a nightly global rotation."
+            ),
+            what="Nightly global rotation",
+            aftermath="Nightly global rotation",
+            who="marcus",
+            permalink="https://example.test/p1",
+        )
+    )
+    assert v.confidence < 0.5
+    assert v.who == ""
+    assert v.aftermath == ""
+    assert v.permalink == ""
+    card = _no_match_card(v)
+    assert card.title == "I didn't find a matching call"
+    assert card.who == ""
+    assert card.aftermath == ""
+    assert card.confidence < 0.5
+    assert "didn't find" in (card.summary or "").lower()
+    blob = str(_blocks(card))
+    assert "*Who*" not in blob
+    assert "*Now*" not in blob
+    assert "100%" not in blob
+
+
+def test_honest_verdict_keeps_reversed_match_and_caps_unknown():
+    from ikigai.pipeline import _honest_verdict
+    from ikigai.schemas import Verdict
+
+    kept = _honest_verdict(
+        Verdict(
+            same_decision=True,
+            status="reversed",
+            confidence=0.88,
+            answer="@marcus spread renewals across a 6-hour window keyed by service id. Later reversed.",
+            who="marcus",
+            aftermath="Nightly global rotation",
+        )
+    )
+    assert kept.same_decision is True
+    assert kept.confidence == 0.88
+    assert kept.who == "marcus"
+    unsure = _honest_verdict(
+        Verdict(same_decision=True, status="unknown", confidence=1.0, who="marcus")
+    )
+    assert unsure.confidence <= 0.52
+    assert unsure.who == "marcus"
+
+
+def test_unsure_lookup_does_not_claim_a_match(monkeypatch):
+    import asyncio
+
+    from ikigai.pipeline import run_pipeline
+    from ikigai.schemas import Trigger, Verdict
+    from ikigai.slack_app import _blocks
+    from ikigai.slack_store import reset_store
+
+    reset_store()
+
+    class _Graph:
+        def list(self):
+            return []
+
+    def fake_embed(texts, stage="rank"):
+        return [[1.0, 0.1] for _ in texts]
+
+    def fake_json(**kwargs):
+        return (
+            Verdict(
+                same_decision=False,
+                status="unknown",
+                confidence=1.0,
+                answer=(
+                    "Marcus initially decided to stagger renewals across a 6-hour window "
+                    "keyed by service ID, but this decision has been reversed."
+                ),
+                what="Nightly global rotation",
+                aftermath="Nightly global rotation",
+                who="marcus",
+                permalink="https://acme.slack.com/archives/C-SECURITY/p1710000000100",
+            ),
+            "m",
+        )
+
+    monkeypatch.setattr("ikigai.pipeline.generate_json", fake_json)
+    monkeypatch.setattr("ikigai.retrieval.embed", fake_embed)
+    monkeypatch.setattr("ikigai.retrieval.graph", lambda: _Graph())
+
+    result = asyncio.run(
+        run_pipeline(
+            Trigger(
+                text="whats the time window for renewals keyed by service id",
+                path="search",
+                channel_id="C-SECURITY",
+            )
+        )
+    )
+    assert result.card
+    assert result.card.title == "I didn't find a matching call"
+    assert result.card.confidence < 0.5
+    assert not (result.card.who or "").strip()
+    assert not (result.card.aftermath or "").strip()
+    assert not (result.card.permalink or "").strip()
+    blob = str(_blocks(result.card))
+    assert "*Who*" not in blob
+    assert "100%" not in blob
+
+
+def test_pack_messages_includes_dates():
+    from ikigai.notes import pack_messages
+    from ikigai.schemas import SlackMessage
+
+    blob = pack_messages(
+        [
+            SlackMessage(
+                channel_id="C-SECURITY",
+                channel_name="security",
+                ts="1",
+                thread_ts="1",
+                user_label="marcus",
+                text="we'll spread renewals across a 6-hour window keyed by service id.",
+                permalink="https://example.test/p1",
+                at="2024-03-12T09:18:00Z",
+            )
+        ]
+    )
+    assert "2024-03-12" in blob
+    assert "@marcus" in blob
+    assert "6-hour window" in blob
 
 
 def test_search_card_is_direct_not_a_story():
@@ -170,6 +378,8 @@ def test_search_card_is_direct_not_a_story():
     assert "*Who*" in blob
     assert "@priya" in blob
     assert "*Status*" in blob
+    assert "*Confidence*" in blob
+    assert "90%" in blob
     assert "*Now*" in blob
     assert "*What*" not in blob
     assert "*Why*" not in blob
@@ -280,6 +490,12 @@ def test_slash_ack_says_searching():
     assert SEARCHING in str(seen["p"])
     _ikigai_ack(ack, {"text": "login"})
     assert CATCHING_UP in str(seen["p"])
+
+
+def test_slack_acks_before_lookup():
+    from ikigai.slack_app import bolt
+
+    assert bolt.process_before_response is False
 
 
 def test_private_session_keeps_followups():
@@ -696,7 +912,7 @@ def test_search_can_stay_in_one_channel():
     from ikigai.slack_store import reset_store
 
     store = reset_store()
-    rows = store.search("decision", limit=20, channel_id="C-SECURITY")
+    rows = store.search("credential", limit=20, channel_id="C-SECURITY")
     assert rows
     assert all(m.channel_id == "C-SECURITY" for m in rows)
 
@@ -787,7 +1003,7 @@ def test_slack_signature_rejects_forged_and_replayed():
 def test_search_understands_then_answers(monkeypatch):
     import asyncio
 
-    from ikigai.pipeline import run_pipeline
+    from ikigai.pipeline import _lookup_thinking, run_pipeline
     from ikigai.schemas import Trigger, Verdict
     from ikigai.slack_store import reset_store
 
@@ -836,10 +1052,14 @@ def test_search_understands_then_answers(monkeypatch):
         )
     )
     assert stages == ["search-reply"]
-    assert thinks["search-reply"] == "LOW"
+    assert thinks["search-reply"] == _lookup_thinking(
+        "should we rotate tokens every night?", result.candidates
+    )
+    assert thinks["search-reply"] in {"LOW", "MEDIUM"}
     assert "one-line summary" in prompts["search-reply"]
     assert "who made the call" in prompts["search-reply"]
-    assert "later messages" in prompts["search-reply"]
+    assert "later dated notes" in prompts["search-reply"]
+    assert "later-reversed call" in prompts["search-reply"]
     assert "Notes" in prompts["search-reply"]
     assert "UNTRUSTED SLACK TEXT" in prompts["search-reply"]
     assert "gate" not in stages
@@ -857,4 +1077,4 @@ def test_search_understands_then_answers(monkeypatch):
     assert result.gemini_used is True
     assert result.candidates
     assert all(c.channel_id == "C-SECURITY" for c in result.candidates)
-    assert len(prompts["search-reply"]) < 14000
+    assert len(prompts["search-reply"]) < 20000

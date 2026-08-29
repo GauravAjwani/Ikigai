@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     watcher_confidence_threshold: float = 0.72
     rank_threshold: float = 0.42
     max_slack_searches: int = 2
-    max_rank_candidates: int = 8
+    max_rank_candidates: int = 10
 
     firestore_collection: str = "ikigai_decisions"
     meter_collection: str = "ikigai_meter"

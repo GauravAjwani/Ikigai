@@ -11,9 +11,9 @@ from ikigai.prefilter import is_chatter, is_decision_call, looks_decisionish, to
 from ikigai.schemas import RankedCandidate
 from ikigai.slack_store import SlackStore
 
-_KEEP = 28
-_RANK = 8
-_THREADS = 6
+_KEEP = 35
+_RANK = 10
+_THREADS = 8
 
 
 def _cos(a: list[float], b: list[float]) -> float:
@@ -91,9 +91,11 @@ def retrieve(
             _add(m)
     else:
         try:
-            chans = store.channels()[:6]
+            chans = list(store.channels())
         except Exception:
             chans = []
+        if type(store).__name__ != "FixtureSlack":
+            chans = chans[:12]
         for ch in chans:
             try:
                 hist = store.history(ch.id)[-30:]
@@ -138,6 +140,8 @@ def retrieve(
             found[key].graph_status = d.status
             if not found[key].snippet:
                 found[key].snippet = d.label
+            if not found[key].at:
+                found[key].at = d.updated_at or d.created_at
         else:
             found[key] = RankedCandidate(
                 permalink=d.permalink,
@@ -148,6 +152,7 @@ def retrieve(
                 source="graph",
                 decision_id=d.decision_id,
                 graph_status=d.status,
+                at=d.updated_at or d.created_at,
             )
     rows = list(found.values())
     if scoped:
@@ -175,7 +180,7 @@ def with_thread_context(store: SlackStore, ranked: list[RankedCandidate], limit:
         except Exception:
             msgs = []
         if msgs:
-            c.context = pack_messages(msgs, limit=10, each=180)
+            c.context = pack_messages(msgs, limit=13, each=225)
         else:
             c.context = c.snippet
 
@@ -184,7 +189,7 @@ def with_thread_context(store: SlackStore, ranked: list[RankedCandidate], limit:
         for c in todo:
             _fill(c)
         return ranked
-    with ThreadPoolExecutor(max_workers=min(6, len(todo))) as pool:
+    with ThreadPoolExecutor(max_workers=min(8, len(todo))) as pool:
         list(pool.map(_fill, todo))
     return ranked
 
@@ -203,7 +208,7 @@ def _keyword_rank(trigger: str, candidates: list[RankedCandidate], limit: int) -
 def rank(trigger: str, candidates: list[RankedCandidate], limit: int) -> list[RankedCandidate]:
     if not candidates:
         return []
-    short = _keyword_rank(trigger, candidates, max(limit, 8))
+    short = _keyword_rank(trigger, candidates, max(limit, _RANK))
     if len(short) <= 1:
         return short[:limit]
     corpus = [trigger] + [c.snippet for c in short]

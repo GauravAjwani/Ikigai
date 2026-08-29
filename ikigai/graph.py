@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from contextvars import ContextVar
 from threading import Lock
 
@@ -143,7 +144,9 @@ def graph() -> DecisionGraph:
     global _graph
     if _graph is None:
         s = get_settings()
-        if s.gcp_ready():
+        # Firestore only on Cloud Run. A laptop with GOOGLE_CLOUD_PROJECT set
+        # otherwise hangs health() on SSL to Google while Replay waits.
+        if s.gcp_ready() and os.environ.get("K_SERVICE"):
             try:
                 _graph = FirestoreGraph()
                 _graph.list()

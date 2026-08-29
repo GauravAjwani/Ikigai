@@ -151,14 +151,14 @@ class FixtureSlack(SlackStore):
         ch = next((c for c in self._channels if c.id == channel_id), None)
         if not ch:
             raise ValueError("unknown channel")
-        n = len(self._messages) + 1
-        ts = f"1800000000.{n:03d}"
+        now = time.time()
+        ts = f"{now:.6f}"
         msg = SlackMessage(
             channel_id=channel_id,
             channel_name=ch.name,
             ts=ts,
             thread_ts=ts,
-            user_label=user_label,
+            user_label=user_label or "you",
             text=text,
             permalink=f"https://acme.slack.com/archives/{channel_id}/p{ts.replace('.', '')}",
             at="now",
@@ -636,8 +636,10 @@ def demo_store() -> FixtureSlack:
 
 
 def reset_demo_store() -> FixtureSlack:
-    global _demo
+    global _demo, _store
     _demo = FixtureSlack()
+    if _store is None or isinstance(_store, FixtureSlack):
+        _store = _demo
     return _demo
 
 
@@ -661,11 +663,12 @@ def slack_store() -> SlackStore:
         if s.slack_bot_token:
             _store = LiveSlack(s.slack_bot_token, user_token=s.slack_user_token or None)
         else:
-            _store = FixtureSlack()
+            _store = demo_store()
     return _store
 
 
 def reset_store() -> SlackStore:
-    global _store
-    _store = FixtureSlack()
+    global _store, _demo
+    _demo = FixtureSlack()
+    _store = _demo
     return _store

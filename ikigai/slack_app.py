@@ -25,7 +25,9 @@ s = get_settings()
 bolt = App(
     token=s.slack_bot_token or "xoxb-not-set",
     signing_secret=s.slack_signing_secret or "not-set",
-    process_before_response=True,
+    # ACK in <3s, then lazy work posts via response_url. Waiting for Gemini
+    # here is what Slack surfaces as operation_timeout.
+    process_before_response=False,
     token_verification_enabled=False,
 )
 handler = SlackRequestHandler(bolt)
@@ -59,12 +61,12 @@ def _blocks(card) -> list[dict]:
             }
         )
     now = (card.aftermath or card.why or "").strip()
-    status = f"`{card.status}`"
-    if card.confidence:
-        status = f"{status} · {card.confidence:.0%}"
     fields = [
-        {"type": "mrkdwn", "text": safe_mrkdwn(f"*Status*\n{status}", 800)},
+        {"type": "mrkdwn", "text": safe_mrkdwn(f"*Status*\n`{card.status}`", 800)},
     ]
+    if card.confidence:
+        pct = f"{card.confidence:.0%}"
+        fields.append({"type": "mrkdwn", "text": safe_mrkdwn(f"*Confidence*\n{pct}", 800)})
     who = (getattr(card, "who", "") or "").strip().lstrip("@")
     if who:
         fields.append({"type": "mrkdwn", "text": safe_mrkdwn(f"*Who*\n@{who}", 800)})
