@@ -11,7 +11,7 @@ Public and private are separate. `@Ikigai` is a channel reply everyone can see. 
 You do **not** need a Slack workspace, GCP project, or Vertex account to evaluate the agent.
 
 1. **Demo video** (primary). The live Slack agent is what the product is.
-2. **Replay UI** (no Slack). Run locally with the steps below, then type `Let's rotate tokens every night.` You should get the lock-free rotator reversal and the earlier 401 cascade — not a keyword match.
+2. **Replay UI** (no Slack). Run locally with the steps below, then type `Let's rotate tokens every night.` You should get the lock-free rotator reversal and the earlier 401 cascade — not a keyword match. Full click-through: [Reproducible testing](#reproducible-testing).
 3. **Hosted Replay** (no Slack, no laptop):
    - App: https://ikigai-uipuf5bksa-uc.a.run.app
    - Health: https://ikigai-uipuf5bksa-uc.a.run.app/api/health
@@ -135,13 +135,70 @@ Open http://127.0.0.1:43177
 
 Without `GEMINI_API_KEY` (and without Vertex), lookup returns 503. The product does not fake Gemini.
 
-### Tests
+## Reproducible testing
+
+No Slack workspace is required for A or B. Slack is C.
+
+### A. Automated tests (no Slack, no Gemini)
+
+From the repo root, venv on, **unset** `GOOGLE_CLOUD_PROJECT` if `.env` points at a live GCP project (otherwise `test_health` / `test_privacy` can hang on SSL):
 
 ```bash
 python -m pytest tests/test_core.py tests/test_api.py -q
 ```
 
-If `test_health` / `test_privacy` hang, your `.env` is pointing at a live GCP project. Use `pytest tests/test_core.py -q` instead, or unset `GOOGLE_CLOUD_PROJECT` for the test run.
+Expect every test to pass. These hit FastAPI with `FixtureSlack` and mocked or skipped Gemini. They do not call a live Slack workspace.
+
+### B. Replay UI (same pipeline as Slack, fixture workspace)
+
+**Hosted (no laptop):** open https://ikigai-uipuf5bksa-uc.a.run.app — first load can take ~15s if the service is cold.
+
+1. Click **Skip** on the tour.
+2. Stay **@you**. Open **#security**. Select **/ikigai**.
+3. Type `Let's rotate tokens every night.` and search.
+4. Expect a **reversed** card: stagger after the 401s, then nightly rotation again via the lock-free rotator. **Status**, **Confidence**, **Who**, **Now**. Not a keyword match — the question never said “stagger.”
+5. Select **Message**. Type `thanks!`. Expect silence (no card, no Gemini).
+6. **/check-ikigai** with `priya`. Expect Priya’s calls in that channel plus who supported or opposed.
+7. As **@priya**, **/ikigai logout**. Switch to **@marcus**, **Message** a short proposal. Switch back to **@priya**, **/ikigai login**. Catch-up is only what Marcus posted after logout — not the 2024 fixture history.
+
+Health: `GET https://ikigai-uipuf5bksa-uc.a.run.app/api/health` should be `{"ok": true, ...}`.
+
+**Local:** after the uvicorn steps above, do the same at http://127.0.0.1:43177. Lookup needs `GEMINI_API_KEY` or Vertex.
+
+### C. Live Slack (your Cloud Run, HTTP events)
+
+You **cannot** create a new Slack app and point it at the public Cloud Run URL. HMAC uses **this** service’s signing secret, so a stranger’s app will get `401`. To reproduce Slack, deploy your own service and put **your** tokens on it. The hosted agent in the demo video is already installed in the submission workspace.
+
+1. Deploy with [section 2](#2-deploy-to-google-cloud). Confirm `https://<YOUR>.run.app/api/health` is `"ok": true`.
+2. Open [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From an app manifest**.
+3. Paste [`infra/slack-manifest.yaml`](infra/slack-manifest.yaml). Replace every `ikigai-uipuf5bksa-uc.a.run.app` with `<YOUR>.run.app`. Leave **Socket Mode off**.
+4. **Install App** to a workspace you admin.
+5. Copy **Bot User OAuth Token** (`xoxb-…`) and **Signing Secret**.
+6. Put them on Cloud Run (never commit `.env`):
+
+```bash
+gcloud run services update ikigai --region us-central1 \
+  --update-env-vars "SLACK_BOT_TOKEN=xoxb-…,SLACK_SIGNING_SECRET=…"
+```
+
+7. In Slack → your app → **Event Subscriptions** and **Slash Commands**, confirm the request URLs verify (green).
+8. In a **public channel**: `/invite @Ikigai`. The bot only reads channels it is in.
+9. Seed a call the channel does not already have, for example post:  
+   `from now on runtime flags go through LaunchDarkly. env vars are just for boot-time config.`
+10. Then run the table below. You should see **Searching decision history…** within 3 seconds, then the card. If Slack says `operation_timeout` and never ACKs, the service is cold or still waiting on Gemini before ACK — that is a bug; a warm instance should ACK first.
+
+| What you type | Where | What you should see |
+|---|---|---|
+| `/ikigai should we put the kill switch in an env var?` | Same channel | Private card. Only you. LaunchDarkly / not env. **Who**, **Now**. |
+| `@Ikigai should we put the kill switch in an env var?` | Same channel | Same lookup, **public** in the thread. |
+| `/ikigai hello` or `@Ikigai thanks` | Same channel | Silence. No card. |
+| `/check-ikigai @YourSlackUsername` | Same channel | That person’s calls **in this chat**, plus supported / opposed. Use a Slack `@username`, not a display name. |
+| `/ikigai logout` | Same channel | Private goodbye. Marks **you** away. |
+| Post a decision-like message as someone else (or another account) | Same channel | Ordinary Slack message. |
+| `/ikigai login` | Same channel | Private catch-up of what landed **after your logout**, not the whole history. |
+| DM **Ikigai**: `should we put the kill switch in an env var?` | 1:1 with the bot | Private lookup across channels the bot can see. |
+
+Leave `SLACK_USER_TOKEN` empty unless you have a user token with `search:read`. Without it, Ikigai scans `conversations.history` on channels it has joined.
 
 ## 2. Deploy to Google Cloud
 
@@ -164,35 +221,6 @@ chmod +x infra/deploy.sh
 The script builds the image with Cloud Build, then `gcloud run deploy --image`. It enables Run, Vertex, Firestore, Pub/Sub, Secret Manager, and Artifact Registry. Confirm `"ok": true` on `/api/health`.
 
 Optional: set `IKIGAI_API_TOKEN` before deploy so `/api/privacy`, `/mcp/*`, and other private routes require header `X-Ikigai-Token`. Replay (`/api/workspace`, `/api/run`, …) stays public on Cloud Run and only serves the **fixture** corpus. Slack routes stay signature-checked and do not use that header.
-
-## 3. Connect Slack (optional — live agent)
-
-Replay does not need this. This is how the Cloud Run service becomes `@Ikigai` in a workspace.
-
-1. Open [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From an app manifest**.
-2. Paste [`infra/slack-manifest.yaml`](infra/slack-manifest.yaml). Replace the `run.app` URLs with your Cloud Run URL if you deployed your own project.
-3. **Install App** to the workspace.
-4. Copy **Bot User OAuth Token** (`xoxb-…`) and **Signing Secret** into Cloud Run env (`SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`) or into local `.env`.
-5. Confirm:
-   - **Event Subscriptions** request URL: `https://<service>.run.app/slack/events` (bot events: `app_mention`, `message.channels`, `message.groups`, `message.im`)
-   - **Slash Commands** `/ikigai` and `/check-ikigai`: `https://<service>.run.app/slack/commands`
-   - **Interactivity** request URL: same as events
-6. In each channel: `/invite @Ikigai`.
-
-**Local Slack (laptop only):** set `SLACK_APP_TOKEN` (`xapp-…`) and turn **Socket Mode** on for that app. Cloud Run must use HTTP events, not Socket Mode. Slash and mention ACKs return in under 3s (`Searching decision history…`); the card is posted afterward via `response_url` / `chat.update`. Do not wait for Gemini before the ACK — that is what Slack surfaces as `operation_timeout`.
-
-Leave `SLACK_USER_TOKEN` empty unless you have a user token with `search:read`. Without it, Ikigai scans `conversations.history` on channels the bot is in.
-
-### Smoke in Slack
-
-| Type | Expect |
-|---|---|
-| `/ikigai logout` | Private goodbye |
-| `/ikigai login` | Private catch-up |
-| `/ikigai should we rotate tokens every night?` | Private card, only you |
-| `@Ikigai should we rotate tokens every night?` | Public thread reply |
-| `/check-ikigai @someone` | That person's calls + supported / opposed |
-| `@Ikigai hello` | Silence |
 
 ## MCP
 
